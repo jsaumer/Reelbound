@@ -10,19 +10,19 @@ Each stage splits into two phases with two distinct skills: a **build phase** (a
 
 ## The planning set
 
-Start with [`00_START_HERE.md`](00_START_HERE.md) — it indexes the whole set.
+Start with [`00_START_HERE.md`](docs/00_START_HERE.md) — it indexes the whole set.
 
 | # | Doc | Purpose |
 |---|-----|---------|
-| 00 | [START_HERE](00_START_HERE.md) | Index + how the set fits together. |
-| 01 | [ENGINE_EVALUATION](01_ENGINE_EVALUATION.md) | Engine decision (Godot 4.7) and reasoning. |
-| 02 | [GAME_DESIGN](02_GAME_DESIGN.md) | Mechanics: phases, three-pool economy, spins, failure, boons/curses. |
-| 03 | [IDEA_BACKLOG](03_IDEA_BACKLOG.md) | Catalogue of symbols, features, boons, curses, bet types, themes. |
-| 04 | [ART_DIRECTION](04_ART_DIRECTION.md) | Visual style, "juice," UI feel (light for now). |
-| 05 | [ROADMAP](05_ROADMAP.md) | Phased plan from decisions → prototype → content. |
-| 06 | [OPEN_QUESTIONS](06_OPEN_QUESTIONS.md) | The live decision register — source of truth for decided vs. pending. |
-| 07 | [SLOT_TYPES](07_SLOT_TYPES.md) | The five starting slot types and how they interact with the economy. |
-| 08 | [BONUS_SYSTEM](08_BONUS_SYSTEM.md) | Bonuses as an unlockable capability; the three-tier structure. |
+| 00 | [START_HERE](docs/00_START_HERE.md) | Index + how the set fits together. |
+| 01 | [ENGINE_EVALUATION](docs/01_ENGINE_EVALUATION.md) | Engine decision (Godot 4.7) and reasoning. |
+| 02 | [GAME_DESIGN](docs/02_GAME_DESIGN.md) | Mechanics: phases, three-pool economy, spins, failure, boons/curses. |
+| 03 | [IDEA_BACKLOG](docs/03_IDEA_BACKLOG.md) | Catalogue of symbols, features, boons, curses, bet types, themes. |
+| 04 | [ART_DIRECTION](docs/04_ART_DIRECTION.md) | Visual style, "juice," UI feel (light for now). |
+| 05 | [ROADMAP](docs/05_ROADMAP.md) | Phased plan from decisions → prototype → content. |
+| 06 | [OPEN_QUESTIONS](docs/06_OPEN_QUESTIONS.md) | The live decision register — source of truth for decided vs. pending. |
+| 07 | [SLOT_TYPES](docs/07_SLOT_TYPES.md) | The five starting slot types and how they interact with the economy. |
+| 08 | [BONUS_SYSTEM](docs/08_BONUS_SYSTEM.md) | Bonuses as an unlockable capability; the three-tier structure. |
 
 ## Core decisions locked
 
@@ -32,4 +32,4 @@ Start with [`00_START_HERE.md`](00_START_HERE.md) — it indexes the whole set.
 - **Play:** brutal bankroll drain; dual limiter (bankroll **or** manipulable spin cap) vs. a winnings quota (D3, D6)
 - **Build:** currency-spine + drafted shelf; explicit "load bankroll" shown in spins; leftover auto-converts (D5)
 
-See [`06_OPEN_QUESTIONS.md`](06_OPEN_QUESTIONS.md) for the full register.
+See [`06_OPEN_QUESTIONS.md`](docs/06_OPEN_QUESTIONS.md) for the full register.
