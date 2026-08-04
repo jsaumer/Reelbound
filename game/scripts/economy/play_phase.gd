@@ -5,12 +5,16 @@
 ##
 ## Unlike sim/play_phase.py's batch while-loop (which runs a whole play
 ## phase to completion for simulation, with pluggable strategy callables),
-## this is driven one decision at a time by the UI. Every win pauses on
-## `awaiting_gamble_decision` until the caller resolves it via
-## bank_pending()/gamble_pending(); once quota clears, every subsequent
-## spin pauses on `awaiting_continuation_decision` (D23) until the caller
-## calls keep_playing()/cash_out(). Check those flags after every spin()
-## and after every gamble_pending() call before doing anything else.
+## this is driven one decision at a time by the UI. A win only *may* pause
+## on `awaiting_gamble_decision` -- gated by gamble_offer_probability (per
+## playtest feedback, offering it on every win got old fast; the offer is
+## meant to eventually be gated behind an obtainable item/boon, Phase 4/5,
+## not built yet, so this probability is the buildable part of that today).
+## When it does pause, resolve it via bank_pending()/gamble_pending(). Once
+## quota clears, every subsequent spin pauses on
+## `awaiting_continuation_decision` (D23) until the caller calls
+## keep_playing()/cash_out(). Check those flags after every spin() and
+## after every gamble_pending() call before doing anything else.
 class_name PlayPhase
 extends RefCounted
 
@@ -25,6 +29,7 @@ var quota: float
 var spin_cap: int
 var starting_bankroll: float
 var gamble_win_probability: float
+var gamble_offer_probability: float
 var cash_out_discount: float
 var rng: RandomNumberGenerator
 
@@ -41,7 +46,7 @@ var cash_out_offer: float = 0.0
 func _init(p_machine: ReelMachine, p_pools: Pools, p_paytable: Dictionary,
 		p_paylines: Array, p_min_match: int, p_quota: float, p_spin_cap: int,
 		p_rng: RandomNumberGenerator, p_gamble_win_probability: float = 0.5,
-		p_cash_out_discount: float = 0.4) -> void:
+		p_cash_out_discount: float = 0.4, p_gamble_offer_probability: float = 0.25) -> void:
 	machine = p_machine
 	pools = p_pools
 	paytable = p_paytable
@@ -53,6 +58,7 @@ func _init(p_machine: ReelMachine, p_pools: Pools, p_paytable: Dictionary,
 	rng = p_rng
 	gamble_win_probability = p_gamble_win_probability
 	cash_out_discount = p_cash_out_discount
+	gamble_offer_probability = p_gamble_offer_probability
 
 
 func is_over() -> bool:
@@ -80,7 +86,14 @@ func spin(bet: float) -> float:
 
 	if last_payout > 0.0:
 		pools.add_to_pending(last_payout)
-		awaiting_gamble_decision = true
+		# The gamble-up choice is only offered some of the time (per
+		# playtest feedback -- see economy_config.gd:GAMBLE_OFFER_PROBABILITY).
+		# When it doesn't appear, the win just auto-banks.
+		if rng.randf() < gamble_offer_probability:
+			awaiting_gamble_decision = true
+		else:
+			pools.commit_pending_to_winnings()
+			_after_pending_resolved()
 	else:
 		_after_pending_resolved()
 

@@ -7,9 +7,15 @@ spin cap is reached, whichever comes first. Win iff winnings >= quota at
 that point.
 
 Phase 3 (docs/05_ROADMAP.md): the pending pool no longer auto-commits.
-Every win offers a bank-vs-gamble-up decision (docs/02_GAME_DESIGN.md #4),
-repeatable while pending is nonzero -- gambling only ever mutates pending
-(double on a win, zero on a loss); bankroll is untouched either way (D3).
+A win *may* offer a bank-vs-gamble-up decision (docs/02_GAME_DESIGN.md #4)
+-- only with probability `gamble_offer_probability` (default 0.25; per
+playtest feedback, offering it on every single win got old fast, and the
+offer is meant to eventually be gated behind an obtainable item/boon,
+Phase 4/5 -- not built yet, so this probability is the buildable part of
+that today). When offered, it's repeatable while pending is nonzero --
+gambling only ever mutates pending (double on a win, zero on a loss);
+bankroll is untouched either way (D3). When not offered, the win
+auto-banks.
 
 D23: clearing the quota does not itself end play (D6 already only names
 bankroll=0 / spin cap as the end triggers) -- it locks in a win (winnings
@@ -109,6 +115,11 @@ def run_play_phase(sim_config, bet_strategy, rng, gamble_strategy=never_gamble,
 
 
 def _resolve_gamble(pools: Pools, economy, gamble_strategy, rng) -> None:
+    if rng.random() >= economy.gamble_offer_probability:
+        # The offer doesn't appear this time -- auto-bank, same as if the
+        # player had chosen bank with no gamble ever available.
+        pools.commit_pending_to_winnings()
+        return
     while pools.pending > 0:
         if not gamble_strategy(pools.pending, pools.winnings, economy):
             pools.commit_pending_to_winnings()

@@ -22,8 +22,11 @@ func _new_play_phase(paytable: Dictionary, bankroll: float, quota: float,
 	var pools := Pools.new(bankroll)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
+	# gamble_offer_probability=1.0: these tests exercise the gamble
+	# mechanic itself, not the offer-gate (see test_gamble_offer.gd for
+	# that), so the offer always appears here.
 	return PlayPhase.new(setup.machine, pools, paytable, setup.paylines, 3,
-			quota, spin_cap, rng, 0.5, 0.4)
+			quota, spin_cap, rng, 0.5, 0.4, 1.0)
 
 
 func test_bank_pending_commits_the_full_win():

@@ -34,6 +34,13 @@ class EconomyConfig:
     # No locked decision pins this number -- exposed here, not hardcoded
     # in play_phase, so it's a parameter to tune like quota/spin_cap.
     gamble_win_probability: float = 0.5
+    # Chance the gamble-up choice is even offered on a given win. Per
+    # playtest feedback, being asked to bank-or-gamble on *every* win got
+    # old fast -- the offer itself is meant to eventually be gated behind
+    # an obtainable item/boon (Phase 4/5, not built yet); this probability
+    # is the buildable part of that ask today. When the offer doesn't
+    # appear, the win auto-banks (same as if the player had chosen bank).
+    gamble_offer_probability: float = 0.25
     # Post-quota cash-out discount (D23). Deliberately unfavorable -- the
     # guaranteed cash-out is this fraction of the projected value of
     # playing on, so cashing out is a real trade-off, not a free upgrade.
@@ -112,8 +119,9 @@ def default_economy_config() -> EconomyConfig:
         spin_cap=45,
         min_bet=1.0,
         max_bet=3.0,
-        gamble_win_probability=0.5,  # fair coin flip, see field docstring
-        cash_out_discount=0.4,       # see field docstring (D23)
+        gamble_win_probability=0.5,   # fair coin flip, see field docstring
+        gamble_offer_probability=0.25,  # see field docstring
+        cash_out_discount=0.4,        # see field docstring (D23)
     )
 
 

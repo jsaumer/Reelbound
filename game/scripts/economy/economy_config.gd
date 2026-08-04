@@ -50,6 +50,13 @@ const MAX_BET := 3.0
 # coin flip (docs/02_GAME_DESIGN.md #4).
 const GAMBLE_WIN_PROBABILITY := 0.5
 
+# Chance the gamble-up choice is even offered on a given win. Per playtest
+# feedback, offering it on *every* win got old fast, and the offer is
+# meant to eventually be gated behind an obtainable item/boon (Phase 4/5,
+# not built yet) -- this probability is the buildable part of that today.
+# When the offer doesn't appear, the win auto-banks.
+const GAMBLE_OFFER_PROBABILITY := 0.25
+
 # D23: post-quota cash-out discount. Deliberately unfavorable -- the
 # guaranteed cash-out is this fraction of the projected value of playing
 # on, so cashing out is a real trade-off, not a free upgrade.

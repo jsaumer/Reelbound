@@ -56,7 +56,8 @@ func _build_play_phase() -> void:
 			machine, pools, EconomyConfig.DEFAULT_PAYTABLE,
 			EconomyConfig.DEFAULT_PAYLINES, EconomyConfig.MIN_MATCH,
 			EconomyConfig.QUOTA, EconomyConfig.SPIN_CAP, rng,
-			EconomyConfig.GAMBLE_WIN_PROBABILITY, EconomyConfig.CASH_OUT_DISCOUNT)
+			EconomyConfig.GAMBLE_WIN_PROBABILITY, EconomyConfig.CASH_OUT_DISCOUNT,
+			EconomyConfig.GAMBLE_OFFER_PROBABILITY)
 
 
 func _build_ui() -> void:

@@ -55,11 +55,12 @@ and D23 cash-out.
   - `economy_config.gd` — every parameter, mirroring `sim/config.py`.
   - `play_phase.gd` — the dual-limiter (D6) as a UI-driven state machine
     (not `sim/play_phase.py`'s batch loop + pluggable strategies): a
-    winning spin sets `awaiting_gamble_decision` and pauses until the
-    caller calls `bank_pending()`/`gamble_pending()`; once quota clears,
-    `awaiting_continuation_decision` (D23) pauses every subsequent spin
-    until `keep_playing()`/`cash_out()`. Check `has_pending_decision()`
-    before calling `spin()` again.
+    winning spin only *may* set `awaiting_gamble_decision` (D24,
+    `GAMBLE_OFFER_PROBABILITY = 0.25` — not every win, see below) and
+    pause until the caller calls `bank_pending()`/`gamble_pending()`; once
+    quota clears, `awaiting_continuation_decision` (D23) pauses every
+    subsequent spin until `keep_playing()`/`cash_out()`. Check
+    `has_pending_decision()` before calling `spin()` again.
   - `odds.gd` — hit probabilities and theoretical RTP, computed live from
     whatever reel strips/paytable are actually loaded (per-reel, not a
     uniform-reel assumption) so it stays correct once symbols can be

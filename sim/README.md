@@ -34,11 +34,16 @@ python -m unittest discover -s sim/tests -v
   `flat_max`/`adaptive_throttle`) and bank-vs-gamble strategies
   (`never_gamble`/`always_gamble`/`gamble_while_behind`), Phase 3
   (docs/05_ROADMAP.md).
-- `play_phase.py` — the dual-limiter play-phase loop (D6). Every win offers
-  a repeatable bank-vs-gamble-up decision (docs/02_GAME_DESIGN.md §4) —
-  a fair coin flip that only ever doubles or zeroes *pending*; bankroll is
-  untouched either way (D3). Default `gamble_strategy=never_gamble` keeps
-  Phase 1/2 behavior unchanged if you don't pass one.
+- `play_phase.py` — the dual-limiter play-phase loop (D6). A win *may*
+  offer a repeatable bank-vs-gamble-up decision (docs/02_GAME_DESIGN.md
+  §4) — a fair coin flip that only ever doubles or zeroes *pending*;
+  bankroll is untouched either way (D3). Only some of the time, though
+  (`D24`, `gamble_offer_probability = 0.25`) — offering it on every win
+  tested as fatiguing, not tense; meant to eventually be gated behind an
+  obtainable item/boon (Phase 4/5) instead of a flat probability. When
+  the offer doesn't appear, the win auto-banks. Default
+  `gamble_strategy=never_gamble` keeps Phase 1/2 behavior unchanged if
+  you don't pass one.
 
   **D23:** clearing the quota no longer stops play (D6 only ever named
   bankroll=0 / spin cap as the end triggers) — it locks in a win and, every
