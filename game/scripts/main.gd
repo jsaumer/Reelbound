@@ -25,6 +25,7 @@ var _status_label: Label
 var _bet_spinbox: SpinBox
 var _spin_button: Button
 var _win_flash: ColorRect
+var _gamble_flash: ColorRect
 var _info_button: Button
 var _paytable_panel: PaytablePanel
 var _big_win_banner: BigWinBanner
@@ -93,6 +94,15 @@ func _build_ui() -> void:
 	_win_flash.anchor_bottom = 1.0
 	_win_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_win_flash)
+
+	# Separate from _win_flash (which is always amber) so gamble win/loss
+	# can tint green/red without disturbing the regular win flash's color.
+	_gamble_flash = ColorRect.new()
+	_gamble_flash.color = Color(0, 0, 0, 0.0)
+	_gamble_flash.anchor_right = 1.0
+	_gamble_flash.anchor_bottom = 1.0
+	_gamble_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_gamble_flash)
 
 	_reel_row = HBoxContainer.new()
 	_reel_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -324,12 +334,39 @@ func _play_win_reveal(payout: float, bet: float) -> void:
 		_gamble_info_label.text = "Bank %.1f, or gamble double-or-nothing?" % pools.pending
 		var wants_to_gamble := await _await_choice(_gamble_row, _gamble_button, _bank_button)
 		if wants_to_gamble:
-			play_phase.gamble_pending()
-			_pending_label.text = "Pending: %.1f" % pools.pending
+			var pending_before: float = pools.pending
+			var won: bool = play_phase.gamble_pending()
+			await _play_gamble_result(won, pending_before, pools.pending)
 		else:
 			play_phase.bank_pending()
 
 	_pending_label.text = "Pending: 0.0"
+
+
+## Explicit won/lost feedback for a single gamble-up flip -- color flash +
+## a status line, so the outcome reads clearly instead of just a silent
+## number change.
+func _play_gamble_result(won: bool, pending_before: float, pending_after: float) -> void:
+	_pending_label.text = "Pending: %.1f" % pending_after
+
+	var flash_color: Color
+	if won:
+		_status_label.text = "GAMBLE WON! %.1f -> %.1f" % [pending_before, pending_after]
+		flash_color = Color(0.35, 0.9, 0.4)
+	else:
+		_status_label.text = "GAMBLE LOST -- %.1f gone." % pending_before
+		flash_color = Color(0.9, 0.3, 0.3)
+	_status_label.add_theme_color_override("font_color", flash_color)
+
+	_gamble_flash.color = Color(flash_color.r, flash_color.g, flash_color.b, 0.0)
+	var flash_tween := create_tween()
+	flash_tween.tween_property(_gamble_flash, "color:a", 0.3, 0.06)
+	flash_tween.tween_property(_gamble_flash, "color:a", 0.0, 0.35)
+
+	await get_tree().create_timer(0.9).timeout
+
+	_status_label.text = ""
+	_status_label.remove_theme_color_override("font_color")
 
 
 ## D23: offered every spin once quota is cleared. Awaitable.

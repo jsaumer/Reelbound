@@ -34,7 +34,7 @@ A running catalogue of raw ideas to draw from during content design. Nothing her
 
 - **Free spins** — awarded spins that don't cost bankroll. The core "runway extender."
 - **Hold-and-spin** — lock symbols, re-spin the rest; builds toward a payout.
-- **Gamble-up** — double-or-nothing on a win (the press-your-luck heart).
+- **Gamble-up** — double-or-nothing on a win (the press-your-luck heart). *(Baseline version built in Phase 3, currently offered at a flat probability — `D24` — as a stand-in until this bonus-feature version exists to properly gate it.)*
 - **Multiplier meter** — consecutive wins raise a global multiplier; a loss resets it.
 - **Pick-a-prize** — a small choice mini-event (introduces agency into a feature).
 - **Cascading symbols** — winning symbols vanish, new ones fall (chain potential).
@@ -110,9 +110,10 @@ A running catalogue of raw ideas to draw from during content design. Nothing her
 
 - **"Path B" — active/interleaved build phase** *(parked; core commits to Path A, D20)*. Instead of build-then-play, the player plays a lighter in-stage loop that earns money + spin-cap *during* the stage, spending it on symbols/bonuses as they go, with the big slot spin as a finale. Novel but requires inventing a second gameplay loop from scratch, and it competes with the active play phase (the strongest mechanic). Revisit only if the play-phase differentiation ever proves too thin.
 - Reels of different heights/depths per machine.
+- **Structural upgrades — additional paylines, additional reels/rows.** Playtested the base 5-reel/3-row, 5-payline Payline machine (2026-08) and it holds up well enough that this is now a real unlock idea, distinct from symbol density: adding lines/reels changes hit *frequency* and combination *count*, not what's on the reels. Pairs naturally with "dead reel slots you must pay to unlock" below (unlocking structure both ways — width via lines/reels, depth via reel length). See `02_GAME_DESIGN.md` §7.
 - "Dead" reel slots you must pay to unlock.
 - Symbol synergies (two symbols that pay extra together).
-- A "cash out early" button that banks winnings but ends the stage.
+- A "cash out early" button that banks winnings but ends the stage. *(Built — see `D23`, the post-quota cash-out choice.)*
 - Daily-seed challenge mode (post-launch).
 - **Jackpot / progressive** — a growing pot hit rarely; *not* a base slot type (see `07`) — better as a boss/event feature layer.
 - **Expanding / colossal symbols** — big symbols spanning multiple cells; a modifier, not a slot type.

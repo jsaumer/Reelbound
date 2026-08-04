@@ -124,7 +124,7 @@ Implemented as small modifiers on a few lifecycle hooks: `onBet`, `onSpin`, `onW
 
 ## 7. Meta-progression
 
-Between runs (and possibly an in-run shop between stages), unlock new symbols, features, bet types, boons/curses, slot types, the **bonus capability** (`08`), and starting modifiers. Progression axes: **symbol density**, **slot type** (`07`), and the **bonus unlock ladder** (`08`).
+Between runs (and possibly an in-run shop between stages), unlock new symbols, features, bet types, boons/curses, slot types, the **bonus capability** (`08`), and starting modifiers. Progression axes: **symbol density**, **slot type** (`07`), the **bonus unlock ladder** (`08`), and **structure** — the current 5-reel/3-row, 5-payline machine (`sim/config.py` / `game/scripts/economy/economy_config.gd`) is the validated **base** configuration for the Payline type, not a ceiling. Additional paylines and additional reels/rows are a distinct unlock axis from symbol density — more structure changes hit *frequency* and *combination count* independent of what's actually on the reels. Idea, not yet designed in detail: see `03_IDEA_BACKLOG.md`.
 
 **Constraint — the core must stand alone.** Because bonuses are a mid-game unlock, the first several runs must be genuinely fun on economy alone. If the game is only fun once bonuses appear, the core is too thin — Phase 1 (prove the economy headless) is designed to catch exactly this.
 
