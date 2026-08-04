@@ -20,6 +20,7 @@ var _reel_views: Array = []  # Array[ReelView]
 var _bankroll_label: Label
 var _winnings_label: Label
 var _pending_label: Label
+var _spins_label: Label
 var _status_label: Label
 var _bet_spinbox: SpinBox
 var _spin_button: Button
@@ -83,6 +84,7 @@ func _build_ui() -> void:
 	_bankroll_label = _make_pool_label(pools_row)
 	_winnings_label = _make_pool_label(pools_row)
 	_pending_label = _make_pool_label(pools_row)
+	_spins_label = _make_pool_label(pools_row)
 
 	_win_flash = ColorRect.new()
 	_win_flash.color = Color(1.0, 0.85, 0.3, 0.0)
@@ -217,6 +219,14 @@ func _refresh_pool_labels() -> void:
 	_bankroll_label.text = "Bankroll: %.1f" % pools.bankroll
 	_winnings_label.text = "Winnings: %.1f / %.0f" % [pools.winnings, EconomyConfig.QUOTA]
 	_pending_label.text = "Pending: %.1f" % pools.pending
+	_update_spins_label()
+
+
+func _update_spins_label() -> void:
+	# The spin cap is the other half of the dual limiter (D6) alongside
+	# bankroll -- it needs to be just as visible, or "out of spins" comes
+	# as a surprise with no warning.
+	_spins_label.text = "Spins: %d / %d" % [play_phase.spins_used, EconomyConfig.SPIN_CAP]
 
 
 func _on_spin_pressed() -> void:
@@ -235,6 +245,7 @@ func _on_spin_pressed() -> void:
 	var final_grid: Array = play_phase.last_grid
 
 	_bankroll_label.text = "Bankroll: %.1f" % pools.bankroll
+	_update_spins_label()
 
 	# Near-miss anticipation: if some line is already 2+ into a match that
 	# would pay/upgrade, hold the deciding reel longer and pulse the cells
@@ -362,7 +373,9 @@ func _handle_outcome() -> void:
 			_status_label.text = "BANKROLL EMPTY -- run over."
 			_spin_button.disabled = true
 		PlayPhase.Outcome.OUT_OF_SPINS:
-			_status_label.text = "OUT OF SPINS -- run over."
+			_status_label.text = ("OUT OF SPINS (%d/%d used) -- run over, %.1f short of quota."
+					% [play_phase.spins_used, EconomyConfig.SPIN_CAP,
+					   EconomyConfig.QUOTA - pools.winnings])
 			_spin_button.disabled = true
 		_:
 			_spin_button.disabled = false
