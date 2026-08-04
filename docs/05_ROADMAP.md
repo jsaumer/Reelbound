@@ -17,14 +17,14 @@ The single most important validation. Can be a spreadsheet or a tiny headless sc
 - [x] Simulate many auto-played runs; read win rate, bust rate, spins-to-quota, volatility. *(`sim/harness.py`.)*
 - **Exit:** the numbers produce tension on paper, **without bonuses**. If they don't, fix the design *before* building anything. ✅ Met 2026-08-04 — see `sim/README.md` and the D12/D18 locks in `06_OPEN_QUESTIONS.md`.
 
-## Phase 2 — Spin Feel Prototype (in Godot 4.7) *(current)*
+## Phase 2 — Spin Feel Prototype (in Godot 4.7) *(accepted, good enough to proceed)*
 Now prove the *feel*, with placeholder art. **This phase is not a formality.** The reel settling into its final position — the deceleration, the beat of not-yet-knowing before the symbol locks — is a moment-to-moment experience in its own right, as important to the game's success as the economy Phase 1 validated. See `04` pillar 1. If the settle doesn't land, fix *this* before adding anything else.
 - [x] One machine that spins, eases to a stop, and resolves a payout. *(`game/scripts/ui/reel_view.gd`: flicker → left-to-right staggered stop → elastic settle bounce, driven by the same economy model as `sim/`.)*
 - [x] Three pools shown and updating. *(`game/scripts/main.gd`: bankroll debits immediately on bet; pending ticks up and winnings tallies in after the reels settle.)*
 - [x] Real juice on placeholder art: easing, win burst, number pop, near-miss anticipation. *(Easing/settle bounce, win flash, and number tween confirmed working. Near-miss anticipation (`game/scripts/economy/near_miss.gd` + `reel_view.gd:pulse_cell`) holds the deciding reel and pulses the cells feeding into it when a line is developing. Tiered big-win banner (`game/scripts/ui/big_win_banner.gd`) added alongside it for large payouts. Built and unit-tested 2026-08-04 — not yet hand-confirmed for feel, see Exit below.)*
-- **Exit:** pulling the lever feels good even with grey boxes. **Partially verified 2026-08-04** — the reel settle-bounce itself was hand-tested and confirmed to feel good. Still open: near-miss anticipation and the big-win banner just landed and haven't been hand-tested yet; the overall "pulling the lever" experience end-to-end hasn't been separately confirmed either.
+- **Exit:** pulling the lever feels good even with grey boxes. **Accepted 2026-08-04** — "good for right now," moving on to Phase 3. Not every juice beat (near-miss anticipation, big-win banner) got an explicit separate hand-confirmation; revisit specific pieces later if something about the feel bothers you in play, rather than treating this as a closed book.
 
-## Phase 3 — Play-Phase Decisions
+## Phase 3 — Play-Phase Decisions *(current)*
 Layer the live decisions onto the proven loop.
 - [ ] Bet sizing; bank vs. gamble-up (pending pool); stored-bonus timing.
 - [ ] Confirm (via the Phase-1 model or playtests) that skilled play beats button-mashing.
