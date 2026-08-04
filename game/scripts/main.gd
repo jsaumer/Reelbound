@@ -150,7 +150,7 @@ func _add_margin(root: Control, amount: int) -> void:
 
 func _on_info_pressed() -> void:
 	_paytable_panel.open_for(play_phase.machine.reel_strips, play_phase.paylines,
-			play_phase.paytable, play_phase.quota)
+			play_phase.paytable, play_phase.min_match, play_phase.quota)
 
 
 func _refresh_pool_labels() -> void:

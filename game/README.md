@@ -34,8 +34,8 @@ repo root for how it's excluded from git.)
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
 ```
 
-17 GUT tests, ported from `sim/tests/` so the two economy implementations
-stay verified in parallel.
+22 GUT tests: 17 ported from `sim/tests/` (economy parity) plus 5 for
+`Odds` (paytable/odds math).
 
 ## Layout
 
@@ -53,10 +53,21 @@ stay verified in parallel.
   - `economy_config.gd` — every parameter, mirroring `sim/config.py`.
   - `play_phase.gd` — the dual-limiter (D6), driven one spin at a time by
     the UI instead of `sim/play_phase.py`'s batch loop.
+  - `odds.gd` — hit probabilities and theoretical RTP, computed live from
+    whatever reel strips/paytable are actually loaded (per-reel, not a
+    uniform-reel assumption) so it stays correct once symbols can be
+    purchased onto specific reels (build phase, Phase 4).
 - `scripts/ui/reel_view.gd` — one reel column: flicker → staggered stop →
   elastic settle bounce. **The feel-critical file** — see Design intent
   above.
-- `tests/` — GUT ports of `sim/tests/`.
+- `scripts/ui/paytable_panel.gd` — the "i" button overlay: match rule
+  (`_build_rules_section`, Payline-only today — see `docs/07_SLOT_TYPES.md`
+  for where the other four types plug in later) + per-symbol payouts/odds
+  + overall RTP, rebuilt live on every open. Meant to be added to every
+  future slot-gameplay screen, not just this one.
+- `assets/symbols/` — generic flat-white silhouette icons per symbol
+  (placeholder art, not a locked style — `docs/04_ART_DIRECTION.md`).
+- `tests/` — GUT ports of `sim/tests/`, plus `test_odds.gd`.
 - `addons/gut/` — vendored [GUT](https://github.com/bitwes/Gut) v9.7.1
   (Godot Unit Testing), committed since it's project-required GDScript
   source, not a downloaded tool binary.

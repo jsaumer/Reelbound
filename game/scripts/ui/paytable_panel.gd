@@ -80,9 +80,22 @@ func _on_dim_input(event: InputEvent) -> void:
 ## running, then shows it. Call this fresh every time -- never cache the
 ## built rows, since the paytable can change between calls (symbols
 ## purchased/added).
-func open_for(reel_strips: Array, paylines: Array, paytable: Dictionary, quota: float) -> void:
+##
+## `min_match` is Payline-specific (the other four types in
+## docs/07_SLOT_TYPES.md -- ways-to-win, cluster+cascade, hold-and-spin,
+## Megaways -- pay by a different rule entirely, e.g. adjacency or cluster
+## size, not a minimum run length). Once those types exist as real modules
+## (Phase 5.5, not yet built), _build_rules_section is the one place that
+## needs a per-type branch to describe each one; nothing else here should
+## need to change, since the symbol/odds list below is already
+## type-agnostic.
+func open_for(reel_strips: Array, paylines: Array, paytable: Dictionary,
+		min_match: int, quota: float) -> void:
 	for child in _list.get_children():
 		child.queue_free()
+
+	_list.add_child(_build_rules_section(reel_strips, paylines, min_match))
+	_list.add_child(HSeparator.new())
 
 	var probs := Odds.symbol_match_probabilities(reel_strips, paytable)
 	var rtp := Odds.theoretical_rtp(reel_strips, paylines, paytable)
@@ -106,6 +119,43 @@ func open_for(reel_strips: Array, paylines: Array, paytable: Dictionary, quota: 
 	visible = true
 
 
+## Describes the actual match rule -- Payline only, for now (docs/07:
+## "start with Payline only"). Built entirely from the live paylines/
+## min_match, not a hardcoded description, so it stays correct if those
+## ever change (more/fewer lines, a different min_match).
+func _build_rules_section(reel_strips: Array, paylines: Array, min_match: int) -> Control:
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", 4)
+
+	var heading := Label.new()
+	heading.text = "Payline"
+	heading.add_theme_font_size_override("font_size", 16)
+	section.add_child(heading)
+
+	var num_reels: int = reel_strips.size()
+	var rule := Label.new()
+	rule.text = ("A line pays if its leftmost %d+ symbols (of %d reels) match, "
+			+ "reading left to right from reel 1.") % [min_match, num_reels]
+	rule.autowrap_mode = TextServer.AUTOWRAP_WORD
+	rule.add_theme_font_size_override("font_size", 13)
+	section.add_child(rule)
+
+	for i in range(paylines.size()):
+		var line := Label.new()
+		line.text = "  Line %d: %s" % [i + 1, _format_line_pattern(paylines[i])]
+		line.add_theme_font_size_override("font_size", 12)
+		section.add_child(line)
+
+	return section
+
+
+func _format_line_pattern(row_pattern: Array) -> String:
+	var parts := []
+	for row in row_pattern:
+		parts.append(str(row))
+	return " - ".join(parts)
+
+
 func _richest(entry: Dictionary) -> float:
 	var best := 0.0
 	for length in entry.keys():
@@ -118,7 +168,15 @@ func _build_symbol_row(symbol: String, entry: Dictionary, probs: Dictionary) -> 
 	row.add_theme_constant_override("separation", 12)
 
 	var swatch := ColorRect.new()
-	swatch.custom_minimum_size = Vector2(32, 32)
+	swatch.custom_minimum_size = Vector2(40, 40)
+	# Without these, an HBoxContainer's default cross-axis FILL stretches
+	# this to match the tallest sibling (the multi-line details column
+	# below), which drags the icon inside it oversized along with it.
+	# clip_contents is a belt-and-suspenders guard against any further
+	# layout surprise inflating the icon past this box.
+	swatch.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	swatch.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	swatch.clip_contents = true
 	swatch.color = EconomyConfig.SYMBOL_COLORS.get(symbol, Color(0.5, 0.5, 0.5))
 	row.add_child(swatch)
 
@@ -127,6 +185,7 @@ func _build_symbol_row(symbol: String, entry: Dictionary, probs: Dictionary) -> 
 		var icon := TextureRect.new()
 		icon.texture = load(icon_path)
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.custom_minimum_size = swatch.custom_minimum_size
 		icon.anchor_right = 1.0
 		icon.anchor_bottom = 1.0
 		swatch.add_child(icon)

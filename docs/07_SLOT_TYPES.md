@@ -20,6 +20,8 @@ The type also sets the **stage's feel**. Chosen to span the volatility spectrum 
 
 The player begins on **Payline** only — the cleanest teaching type for the three-pool economy. The other four are **unlocked through meta-progression**, widening the pool of stage types the game can present.
 
+**Implementation note (Phase 5.5 planning):** the in-game rules/paytable info panel (`game/scripts/ui/paytable_panel.gd`) must show the current stage's actual rules — lines for Payline, ways-count for ways-to-win, cluster/cascade behavior, hold-and-spin respin count, Megaways' variable reel heights — computed live from that stage's config, not a fixed description. Today it only has a Payline section because Payline is the only type that exists in code. When each new type gets its own payout-resolver module, give it its own rules-section function in that same file (mirroring `_build_rules_section`) rather than hardcoding type-specific text elsewhere; don't stub these out before the resolvers themselves exist.
+
 ## Open decision — is slot type stage-dictated or player-chosen? *(D13)*
 
 A real fork that shapes everything about how types are used:
