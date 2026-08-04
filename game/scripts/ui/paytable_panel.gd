@@ -140,20 +140,31 @@ func _build_rules_section(reel_strips: Array, paylines: Array, min_match: int) -
 	rule.add_theme_font_size_override("font_size", 13)
 	section.add_child(rule)
 
+	# num_rows isn't passed in directly -- derive it from the pattern data
+	# itself (highest row index used, +1) rather than adding another
+	# parameter, so this stays correct if the grid shape ever changes.
+	var num_rows := 1
+	for pattern in paylines:
+		for row in pattern:
+			num_rows = max(num_rows, row + 1)
+
 	for i in range(paylines.size()):
-		var line := Label.new()
-		line.text = "  Line %d: %s" % [i + 1, _format_line_pattern(paylines[i])]
-		line.add_theme_font_size_override("font_size", 12)
-		section.add_child(line)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+
+		var diagram := PaylineDiagram.new()
+		diagram.custom_minimum_size = Vector2(num_reels * 16, num_rows * 16)
+		diagram.setup(num_reels, num_rows, paylines[i])
+		row.add_child(diagram)
+
+		var label := Label.new()
+		label.text = "Line %d" % (i + 1)
+		label.add_theme_font_size_override("font_size", 13)
+		row.add_child(label)
+
+		section.add_child(row)
 
 	return section
-
-
-func _format_line_pattern(row_pattern: Array) -> String:
-	var parts := []
-	for row in row_pattern:
-		parts.append(str(row))
-	return " - ".join(parts)
 
 
 func _richest(entry: Dictionary) -> float:
