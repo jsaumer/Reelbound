@@ -19,6 +19,8 @@ var _status_label: Label
 var _bet_spinbox: SpinBox
 var _spin_button: Button
 var _win_flash: ColorRect
+var _info_button: Button
+var _paytable_panel: PaytablePanel
 
 
 func _ready() -> void:
@@ -114,6 +116,26 @@ func _build_ui() -> void:
 	_status_label.add_theme_font_size_override("font_size", 20)
 	root.add_child(_status_label)
 
+	# Info button + paytable/odds overlay. Every slot-gameplay screen should
+	# carry one of these -- it's always computed live from play_phase's
+	# actual machine, never a fixed list, so it stays correct as symbols get
+	# purchased/added (build phase, Phase 4).
+	_info_button = Button.new()
+	_info_button.text = "i"
+	_info_button.tooltip_text = "Paytable & odds"
+	_info_button.custom_minimum_size = Vector2(36, 36)
+	_info_button.anchor_left = 1.0
+	_info_button.anchor_right = 1.0
+	_info_button.offset_left = -52.0
+	_info_button.offset_right = -16.0
+	_info_button.offset_top = 16.0
+	_info_button.offset_bottom = 52.0
+	_info_button.pressed.connect(_on_info_pressed)
+	add_child(_info_button)
+
+	_paytable_panel = PaytablePanel.new()
+	add_child(_paytable_panel)
+
 
 func _make_pool_label(parent: Control) -> Label:
 	var label := Label.new()
@@ -124,6 +146,11 @@ func _make_pool_label(parent: Control) -> Label:
 
 func _add_margin(root: Control, amount: int) -> void:
 	root.add_theme_constant_override("margin_left", amount)
+
+
+func _on_info_pressed() -> void:
+	_paytable_panel.open_for(play_phase.machine.reel_strips, play_phase.paylines,
+			play_phase.paytable, play_phase.quota)
 
 
 func _refresh_pool_labels() -> void:
