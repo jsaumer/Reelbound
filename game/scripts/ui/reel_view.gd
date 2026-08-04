@@ -16,6 +16,8 @@ extends VBoxContainer
 const CELL_SIZE := Vector2(96, 96)
 const ICON_SIZE := Vector2(60, 60)
 const FLICKER_INTERVAL := 0.05
+const SETTLE_BOUNCE_DURATION := 0.08 + 0.35  # matches _play_settle_bounce's two legs
+const PULSE_CYCLE := 0.5
 
 static var _texture_cache: Dictionary = {}
 
@@ -88,6 +90,22 @@ func spin_to(final_symbols: Array, flicker_duration: float) -> void:
 
 	set_symbols(final_symbols)
 	await _play_settle_bounce()
+
+
+## Pulses one already-settled cell's brightness for `duration` seconds --
+## the "this already matches, will the next reel keep it going?" cue that
+## anchors near-miss anticipation on the reels that already stopped.
+func pulse_cell(row_index: int, duration: float) -> void:
+	if row_index < 0 or row_index >= _cell_panels.size():
+		return
+	var panel: Panel = _cell_panels[row_index]
+	var loops: int = max(1, int(round(duration / PULSE_CYCLE)))
+	var tween := create_tween()
+	tween.set_loops(loops)
+	tween.tween_property(panel, "modulate", Color(1.5, 1.5, 1.15), PULSE_CYCLE / 2.0) \
+			.set_trans(Tween.TRANS_SINE)
+	tween.tween_property(panel, "modulate", Color(1, 1, 1), PULSE_CYCLE / 2.0) \
+			.set_trans(Tween.TRANS_SINE)
 
 
 func _play_settle_bounce() -> void:

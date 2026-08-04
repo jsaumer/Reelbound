@@ -6,6 +6,7 @@ extends Control
 
 const REEL_STAGGER := 0.15
 const BASE_FLICKER := 0.5
+const ANTICIPATION_HOLD := 0.7  # extra hold on the reel that decides a developing line
 
 var play_phase: PlayPhase
 var pools: Pools
@@ -21,6 +22,7 @@ var _spin_button: Button
 var _win_flash: ColorRect
 var _info_button: Button
 var _paytable_panel: PaytablePanel
+var _big_win_banner: BigWinBanner
 
 
 func _ready() -> void:
@@ -136,6 +138,11 @@ func _build_ui() -> void:
 	_paytable_panel = PaytablePanel.new()
 	add_child(_paytable_panel)
 
+	# Added last so it renders on top of the reels -- the whole point of a
+	# celebratory banner is that it sits over everything else.
+	_big_win_banner = BigWinBanner.new()
+	add_child(_big_win_banner)
+
 
 func _make_pool_label(parent: Control) -> Label:
 	var label := Label.new()
@@ -176,17 +183,41 @@ func _on_spin_pressed() -> void:
 
 	_bankroll_label.text = "Bankroll: %.1f" % pools.bankroll
 
+	# Near-miss anticipation: if some line is already 2+ into a match that
+	# would pay/upgrade, hold the deciding reel longer and pulse the cells
+	# that already fed into it -- the "will it keep going?" beat. The
+	# outcome is already resolved above; this only paces how it's revealed.
+	var anticipation := NearMiss.find_anticipation(
+			final_grid, play_phase.paylines, play_phase.paytable)
+
 	for i in range(_reel_views.size()):
 		var column := []
 		for row in range(EconomyConfig.NUM_ROWS):
 			column.append(final_grid[i][row])
-		_reel_views[i].spin_to(column, BASE_FLICKER + i * REEL_STAGGER)
+		var flicker: float = BASE_FLICKER + i * REEL_STAGGER
+		if not anticipation.is_empty() and i >= anticipation.reel_index:
+			flicker += ANTICIPATION_HOLD
+		_reel_views[i].spin_to(column, flicker)
 
-	var total_duration: float = BASE_FLICKER + (_reel_views.size() - 1) * REEL_STAGGER + 0.45
-	await get_tree().create_timer(total_duration).timeout
+	if not anticipation.is_empty():
+		var row_pattern: Array = anticipation.row_pattern
+		var decide_at: int = anticipation.reel_index
+		for prev in range(decide_at):
+			var prev_settle_time: float = BASE_FLICKER + prev * REEL_STAGGER \
+					+ ReelView.SETTLE_BOUNCE_DURATION
+			var decide_settle_time: float = BASE_FLICKER + decide_at * REEL_STAGGER \
+					+ ANTICIPATION_HOLD + ReelView.SETTLE_BOUNCE_DURATION
+			_schedule_pulse(prev, row_pattern[prev], prev_settle_time,
+					decide_settle_time - prev_settle_time)
+
+	var last_reel_index: int = _reel_views.size() - 1
+	var last_flicker: float = BASE_FLICKER + last_reel_index * REEL_STAGGER
+	if not anticipation.is_empty() and last_reel_index >= anticipation.reel_index:
+		last_flicker += ANTICIPATION_HOLD
+	await get_tree().create_timer(last_flicker + ReelView.SETTLE_BOUNCE_DURATION + 0.05).timeout
 
 	if payout > 0.0:
-		await _play_win_reveal(payout, winnings_before)
+		await _play_win_reveal(payout, winnings_before, bet)
 	else:
 		_pending_label.text = "Pending: 0.0"
 
@@ -194,7 +225,14 @@ func _on_spin_pressed() -> void:
 	_handle_outcome()
 
 
-func _play_win_reveal(payout: float, winnings_before: float) -> void:
+## Fire-and-forget: waits `start_delay` before pulsing, so the cell only
+## glows once it's actually shown its settled symbol (not mid-flicker).
+func _schedule_pulse(reel_index: int, row: int, start_delay: float, pulse_duration: float) -> void:
+	await get_tree().create_timer(start_delay).timeout
+	_reel_views[reel_index].pulse_cell(row, pulse_duration)
+
+
+func _play_win_reveal(payout: float, winnings_before: float, bet: float) -> void:
 	var tween := create_tween()
 	tween.tween_method(_set_pending_display, 0.0, payout, 0.4)
 	await tween.finished
@@ -202,6 +240,11 @@ func _play_win_reveal(payout: float, winnings_before: float) -> void:
 	var flash_tween := create_tween()
 	flash_tween.tween_property(_win_flash, "color:a", 0.35, 0.06)
 	flash_tween.tween_property(_win_flash, "color:a", 0.0, 0.3)
+
+	var bet_multiple: float = payout / bet if bet > 0.0 else 0.0
+	var tier := BigWinBanner.tier_label(bet_multiple)
+	if tier != "":
+		await _big_win_banner.play(tier)
 
 	var settle_tween := create_tween()
 	settle_tween.tween_method(_set_winnings_display, winnings_before, pools.winnings, 0.5)
