@@ -14,6 +14,9 @@ export.cfg
 export_presets.cfg
 *.translation
 
+# Godot editor binary (downloaded, not repo content)
+tools/godot/
+
 # Build artifacts
 build/
 dist/
