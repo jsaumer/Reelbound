@@ -34,6 +34,10 @@ class EconomyConfig:
     # No locked decision pins this number -- exposed here, not hardcoded
     # in play_phase, so it's a parameter to tune like quota/spin_cap.
     gamble_win_probability: float = 0.5
+    # Post-quota cash-out discount (D23). Deliberately unfavorable -- the
+    # guaranteed cash-out is this fraction of the projected value of
+    # playing on, so cashing out is a real trade-off, not a free upgrade.
+    cash_out_discount: float = 0.4
 
 
 @dataclass
@@ -109,6 +113,7 @@ def default_economy_config() -> EconomyConfig:
         min_bet=1.0,
         max_bet=3.0,
         gamble_win_probability=0.5,  # fair coin flip, see field docstring
+        cash_out_discount=0.4,       # see field docstring (D23)
     )
 
 

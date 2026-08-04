@@ -26,15 +26,16 @@ Now prove the *feel*, with placeholder art. **This phase is not a formality.** T
 
 ## Phase 3 — Play-Phase Decisions *(current)*
 Layer the live decisions onto the proven loop.
-- [ ] Bet sizing; bank vs. gamble-up (pending pool); stored-bonus timing.
-- [ ] Confirm (via the Phase-1 model or playtests) that skilled play beats button-mashing.
-- **Exit:** decisions demonstrably matter.
+- [x] Bet sizing; bank vs. gamble-up (pending pool). *(`sim/strategy.py`, `sim/play_phase.py`: adaptive bet-sizing + a repeatable bank-vs-gamble-up decision after every win, D23's post-quota cash-out choice on top. Not yet mirrored into `game/` — sim first, per plan.)* Stored-bonus timing is **not applicable yet** — bonuses don't exist until Phase 5.7; not stubbed out.
+- [x] Confirm (via the Phase-1 model or playtests) that skilled play beats button-mashing. *(`python -m sim.main compare`, 2026-08-04: `adaptive_throttle` bet-sizing alone lifts win rate 55.1% → 60.3%. `gamble_while_behind` alone is roughly a wash — an honest result, not tuned to look good; a fair-odds gamble is EV-neutral, so it shouldn't move win rate much by itself.)*
+- **Exit:** decisions demonstrably matter. **Met for bet-sizing** (sim-confirmed). Gamble-up and the D23 cash-out choice are mechanically correct and tested but not yet confirmed to matter *in the actual game* (`game/` mirror still pending).
 
 ## Phase 4 — Build Phase + End-to-End Stage
 Make the player an author.
 - [ ] Splittable build budget (machine vs. bankroll).
 - [ ] Symbol/reel editing UI (the "mix of code + visual authoring" in action).
 - [ ] A full single stage playable start-to-finish by a human.
+- [ ] **Ample purchase opportunity.** Looking at the genre's best (Balatro-likes, `Luck be a Landlord`, etc.), the shelf/shop needs to give the player generous, frequent chances to buy symbols and buffs during the build phase — not a thin trickle. This sharpens `D5`'s "small, curated, rotating shelf" without contradicting it: curated ≠ scarce. Revisit shelf size/refresh cadence and buff catalog breadth explicitly when this phase starts.
 - **Exit:** one complete stage loop is playable in the engine.
 
 ## Phase 5 — Boons, Curses, Bet Types

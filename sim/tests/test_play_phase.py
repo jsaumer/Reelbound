@@ -3,7 +3,7 @@ import unittest
 
 from sim.config import EconomyConfig, MachineConfig, SimConfig
 from sim.play_phase import Outcome, run_play_phase
-from sim.strategy import flat_min, flat_mid
+from sim.strategy import flat_min, flat_mid, always_cash_out
 
 
 def single_symbol_machine(symbol="A", num_reels=5, num_rows=1, paytable=None,
@@ -53,8 +53,11 @@ class TestDualLimiter(unittest.TestCase):
         self.assertEqual(result.final_winnings, 1.5)  # 3 spins * 0.5
         self.assertGreater(result.final_bankroll, 0.0)
 
-    def test_win_when_quota_cleared_before_either_limiter(self):
-        # Every spin pays far more than the bet -- quota clears in one spin.
+    def test_win_locked_in_but_play_continues_to_natural_end_by_default(self):
+        # D23: clearing quota no longer stops play. Every spin pays far
+        # more than the bet, so quota clears on spin 1 (winnings=100 >=
+        # 50), but the default continuation_strategy (always_keep_playing)
+        # plays on until bankroll actually runs out.
         machine = single_symbol_machine(paytable={"A": {5: 100.0}})
         economy = EconomyConfig(starting_bankroll=50.0, quota=50.0,
                                  spin_cap=1000, min_bet=1.0, max_bet=1.0)
@@ -63,8 +66,31 @@ class TestDualLimiter(unittest.TestCase):
         result = run_play_phase(sim_config, flat_min, random.Random(0))
 
         self.assertEqual(result.outcome, Outcome.WIN)
+        self.assertEqual(result.spins_used, 50)  # 50 bankroll / 1 bet
+        self.assertEqual(result.final_winnings, 5000.0)  # 100 * 50 spins
+        self.assertEqual(result.final_bankroll, 0.0)
+        self.assertFalse(result.cashed_out)
+
+    def test_always_cash_out_stops_immediately_with_a_discounted_bonus(self):
+        # Same fixture, but the continuation strategy always takes the
+        # first cash-out offer instead of playing on.
+        machine = single_symbol_machine(paytable={"A": {5: 100.0}})
+        economy = EconomyConfig(starting_bankroll=50.0, quota=50.0,
+                                 spin_cap=1000, min_bet=1.0, max_bet=1.0,
+                                 cash_out_discount=0.4)
+        sim_config = SimConfig(machine=machine, economy=economy, seed=1)
+
+        result = run_play_phase(sim_config, flat_min, random.Random(0),
+                                 continuation_strategy=always_cash_out)
+
+        # After spin 1: winnings=100, bankroll=49, spins_remaining=49
+        # (49 bankroll / 1 avg bet), avg_per_spin=100.
+        # cash_out_value = 49 * 100 * 0.4 = 1960.
+        self.assertEqual(result.outcome, Outcome.WIN)
         self.assertEqual(result.spins_used, 1)
-        self.assertEqual(result.final_winnings, 100.0)
+        self.assertTrue(result.cashed_out)
+        self.assertEqual(result.cash_out_bonus, 1960.0)
+        self.assertEqual(result.final_winnings, 100.0 + 1960.0)
 
     def test_bankroll_never_increases_over_a_run(self):
         machine = single_symbol_machine(paytable={"A": {5: 0.5}})

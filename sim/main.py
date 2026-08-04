@@ -12,7 +12,8 @@ import copy
 from sim.config import default_sim_config
 from sim.harness import (run_many, summarize, print_report, sweep, print_sweep,
                           compare_strategies, print_comparison)
-from sim.strategy import BET_STRATEGIES, GAMBLE_STRATEGIES, STRATEGIES
+from sim.strategy import (BET_STRATEGIES, GAMBLE_STRATEGIES, CONTINUATION_STRATEGIES,
+                           STRATEGIES)
 
 
 def cmd_run(args):
@@ -25,26 +26,40 @@ def cmd_run(args):
         sim_config.economy.spin_cap = args.spin_cap
     bet_strategy = BET_STRATEGIES[args.strategy]
     gamble_strategy = GAMBLE_STRATEGIES[args.gamble_strategy]
+    continuation_strategy = CONTINUATION_STRATEGIES[args.continuation_strategy]
 
-    results = run_many(sim_config, bet_strategy, args.runs, gamble_strategy=gamble_strategy)
+    results = run_many(sim_config, bet_strategy, args.runs, gamble_strategy=gamble_strategy,
+                        continuation_strategy=continuation_strategy)
     stats = summarize(results)
     print_report(stats, label=(f"strategy={args.strategy} "
-                                f"gamble={args.gamble_strategy} runs={args.runs}"))
+                                f"gamble={args.gamble_strategy} "
+                                f"continuation={args.continuation_strategy} runs={args.runs}"))
 
 
 def cmd_compare(args):
     sim_config = default_sim_config(seed=args.seed)
+    akp = GAMBLE_STRATEGIES["never_gamble"], CONTINUATION_STRATEGIES["always_keep_playing"]
     strategies = [
-        ("naive: flat_mid + never_gamble",
-         BET_STRATEGIES["flat_mid"], GAMBLE_STRATEGIES["never_gamble"]),
-        ("reckless: flat_max + always_gamble",
-         BET_STRATEGIES["flat_max"], GAMBLE_STRATEGIES["always_gamble"]),
-        ("adaptive bet only: adaptive_throttle + never_gamble",
-         BET_STRATEGIES["adaptive_throttle"], GAMBLE_STRATEGIES["never_gamble"]),
-        ("adaptive gamble only: flat_mid + gamble_while_behind",
-         BET_STRATEGIES["flat_mid"], GAMBLE_STRATEGIES["gamble_while_behind"]),
-        ("skilled: adaptive_throttle + gamble_while_behind",
-         BET_STRATEGIES["adaptive_throttle"], GAMBLE_STRATEGIES["gamble_while_behind"]),
+        ("naive: flat_mid + never_gamble + always_keep_playing",
+         BET_STRATEGIES["flat_mid"], *akp),
+        ("reckless: flat_max + always_gamble + always_keep_playing",
+         BET_STRATEGIES["flat_max"], GAMBLE_STRATEGIES["always_gamble"],
+         CONTINUATION_STRATEGIES["always_keep_playing"]),
+        ("adaptive bet only: adaptive_throttle + never_gamble + always_keep_playing",
+         BET_STRATEGIES["adaptive_throttle"], *akp),
+        ("adaptive gamble only: flat_mid + gamble_while_behind + always_keep_playing",
+         BET_STRATEGIES["flat_mid"], GAMBLE_STRATEGIES["gamble_while_behind"],
+         CONTINUATION_STRATEGIES["always_keep_playing"]),
+        ("skilled bet+gamble: adaptive_throttle + gamble_while_behind + always_keep_playing",
+         BET_STRATEGIES["adaptive_throttle"], GAMBLE_STRATEGIES["gamble_while_behind"],
+         CONTINUATION_STRATEGIES["always_keep_playing"]),
+        # Isolate the continuation (cash-out, D23) decision by holding bet+gamble fixed.
+        ("continuation: skilled bet/gamble + always_cash_out",
+         BET_STRATEGIES["adaptive_throttle"], GAMBLE_STRATEGIES["gamble_while_behind"],
+         CONTINUATION_STRATEGIES["always_cash_out"]),
+        ("continuation: skilled bet/gamble + cash_out_near_the_end",
+         BET_STRATEGIES["adaptive_throttle"], GAMBLE_STRATEGIES["gamble_while_behind"],
+         CONTINUATION_STRATEGIES["cash_out_near_the_end"]),
     ]
     rows = compare_strategies(sim_config, strategies, args.runs, base_seed=args.seed)
     print_comparison(rows)
@@ -76,6 +91,8 @@ def main():
     p_run.add_argument("--strategy", choices=BET_STRATEGIES.keys(), default="flat_mid")
     p_run.add_argument("--gamble-strategy", choices=GAMBLE_STRATEGIES.keys(),
                         default="never_gamble")
+    p_run.add_argument("--continuation-strategy", choices=CONTINUATION_STRATEGIES.keys(),
+                        default="always_keep_playing")
     p_run.add_argument("--bankroll", type=float, default=None,
                         help="override starting bankroll (default: config default)")
     p_run.add_argument("--quota", type=float, default=None,
@@ -85,7 +102,7 @@ def main():
     p_run.set_defaults(func=cmd_run)
 
     p_compare = sub.add_parser("compare", help="Phase 3: do decisions demonstrably matter?")
-    p_compare.add_argument("--runs", type=int, default=20000)
+    p_compare.add_argument("--runs", type=int, default=5000)
     p_compare.add_argument("--seed", type=int, default=12345)
     p_compare.set_defaults(func=cmd_compare)
 

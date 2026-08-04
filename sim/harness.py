@@ -12,7 +12,7 @@ import statistics
 from dataclasses import dataclass, field
 
 from sim.play_phase import Outcome, run_play_phase
-from sim.strategy import never_gamble
+from sim.strategy import never_gamble, always_keep_playing
 
 TENSION_BAND = (0.40, 0.60)
 
@@ -28,17 +28,20 @@ class SimStats:
     payout_mean: float
     payout_variance: float
     payout_stdev: float
+    final_winnings_mean: float
     final_winnings_stdev: float
+    cash_out_rate: float  # fraction of runs that ended via a cash-out (D23)
 
 
 def run_many(sim_config, bet_strategy, n_runs: int, base_seed: int = None,
-             gamble_strategy=never_gamble) -> list:
+             gamble_strategy=never_gamble, continuation_strategy=always_keep_playing) -> list:
     if base_seed is None:
         base_seed = sim_config.seed
     results = []
     for i in range(n_runs):
         rng = random.Random(base_seed + i)
-        results.append(run_play_phase(sim_config, bet_strategy, rng, gamble_strategy))
+        results.append(run_play_phase(sim_config, bet_strategy, rng,
+                                       gamble_strategy, continuation_strategy))
     return results
 
 
@@ -64,7 +67,9 @@ def summarize(results: list) -> SimStats:
         payout_mean=statistics.mean(all_payouts) if all_payouts else 0.0,
         payout_variance=statistics.pvariance(all_payouts) if len(all_payouts) > 1 else 0.0,
         payout_stdev=statistics.pstdev(all_payouts) if len(all_payouts) > 1 else 0.0,
+        final_winnings_mean=statistics.mean(final_winnings) if final_winnings else 0.0,
         final_winnings_stdev=statistics.pstdev(final_winnings) if n > 1 else 0.0,
+        cash_out_rate=sum(1 for r in results if r.cashed_out) / n,
     )
 
 
@@ -95,7 +100,9 @@ def print_report(stats: SimStats, label: str = "") -> None:
     print(f"avg spins used:      {stats.avg_spins_used:.1f}")
     print(f"per-spin payout:     mean={stats.payout_mean:.3f} "
           f"stdev={stats.payout_stdev:.3f} var={stats.payout_variance:.3f}")
-    print(f"final winnings stdev:{stats.final_winnings_stdev:.3f}")
+    print(f"final winnings:      mean={stats.final_winnings_mean:.2f} "
+          f"stdev={stats.final_winnings_stdev:.3f}")
+    print(f"cash-out rate:       {stats.cash_out_rate:.1%}")
     print(verdict(stats))
 
 
@@ -118,26 +125,32 @@ def sweep(sim_config_factory, strategy, n_runs: int, quotas: list,
 
 def compare_strategies(sim_config, strategies: list, n_runs: int,
                         base_seed: int = 12345) -> list:
-    """Run several (label, bet_strategy, gamble_strategy) combos against
-    the identical config/seed stream. This is the Phase-3 exit-criterion
-    tool (docs/05_ROADMAP.md: "confirm... that skilled play beats
-    button-mashing") -- a decision only "demonstrably matters" if it moves
-    these numbers against otherwise-identical conditions.
+    """Run several (label, bet_strategy, gamble_strategy, continuation_strategy)
+    combos against the identical config/seed stream. This is the Phase-3
+    exit-criterion tool (docs/05_ROADMAP.md: "confirm... that skilled play
+    beats button-mashing") -- a decision only "demonstrably matters" if it
+    moves these numbers against otherwise-identical conditions.
 
     Returns [(label, SimStats), ...].
     """
     rows = []
-    for label, bet_strategy, gamble_strategy in strategies:
-        results = run_many(sim_config, bet_strategy, n_runs, base_seed, gamble_strategy)
+    for label, bet_strategy, gamble_strategy, continuation_strategy in strategies:
+        results = run_many(sim_config, bet_strategy, n_runs, base_seed,
+                            gamble_strategy, continuation_strategy)
         rows.append((label, summarize(results)))
     return rows
 
 
 def print_comparison(rows: list) -> None:
-    print(f"{'strategy':<28} {'win_rate':>9} {'bust':>7} {'oos':>7} {'avg_spins':>10}")
+    # win_rate/bust/oos only move with bet-sizing and gamble-up -- a locked
+    # win (D23) always resolves to WIN regardless of the continuation
+    # choice, so avg_winnings/cash_out_rate is where that decision shows up.
+    print(f"{'strategy':<45} {'win_rate':>9} {'bust':>7} {'oos':>7} "
+          f"{'avg_spins':>10} {'avg_winnings':>13} {'cash_out':>9}")
     for label, stats in rows:
-        print(f"{label:<28} {stats.win_rate:9.1%} {stats.bust_rate:7.1%} "
-              f"{stats.out_of_spins_rate:7.1%} {stats.avg_spins_used:10.1f}")
+        print(f"{label:<45} {stats.win_rate:9.1%} {stats.bust_rate:7.1%} "
+              f"{stats.out_of_spins_rate:7.1%} {stats.avg_spins_used:10.1f} "
+              f"{stats.final_winnings_mean:13.2f} {stats.cash_out_rate:9.1%}")
 
 
 def print_sweep(rows: list) -> None:

@@ -39,8 +39,24 @@ python -m unittest discover -s sim/tests -v
   a fair coin flip that only ever doubles or zeroes *pending*; bankroll is
   untouched either way (D3). Default `gamble_strategy=never_gamble` keeps
   Phase 1/2 behavior unchanged if you don't pass one.
+
+  **D23:** clearing the quota no longer stops play (D6 only ever named
+  bankroll=0 / spin cap as the end triggers) — it locks in a win and, every
+  spin after, offers a `continuation_strategy` a choice: keep playing to
+  the natural end, or cash out now for a guaranteed bonus =
+  `spins_remaining x theoretical_rate_per_spin x cash_out_discount`
+  (default 0.4 — deliberately unfavorable, a mild downside not a free
+  upgrade). The projection uses the paytable's *theoretical* rate
+  (`odds.py`), not the realized average so far — the realized average is
+  biased by whatever win just cleared quota, which made an immediate
+  cash-out exploitably profitable before this fix.
+- `odds.py` — theoretical hit probabilities and RTP from the paytable/reel
+  strips themselves (not any run's results). Mirrors
+  `game/scripts/economy/odds.gd`. What `play_phase.py` uses for the D23
+  cash-out projection.
 - `config.py` — every economy/machine parameter in one place, including the
-  tuned defaults, the default Payline machine, and `gamble_win_probability`.
+  tuned defaults, the default Payline machine, `gamble_win_probability`,
+  and `cash_out_discount`.
 - `harness.py` — runs N play-phases, reports win/bust/out-of-spins rate,
   avg spins-to-quota, and payout volatility; checks the result against the
   40–60% tension band; supports a quota x spin_cap sweep and a

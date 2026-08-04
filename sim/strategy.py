@@ -81,3 +81,44 @@ GAMBLE_STRATEGIES = {
     "always_gamble": always_gamble,
     "gamble_while_behind": gamble_while_behind,
 }
+
+
+# --- Post-quota continuation strategies (D23) ---
+#
+# Once winnings clear quota, the run is a locked win (D3: winnings never
+# decreases) -- but play doesn't stop. Every subsequent spin re-offers a
+# choice: keep playing to the natural end (D6), or cash out now for a
+# guaranteed, deliberately-discounted bonus. A continuation strategy is
+# `(spins_remaining, avg_winnings_per_spin, cash_out_value, pools, economy)
+# -> bool`: True keeps playing, False cashes out.
+
+def always_keep_playing(spins_remaining: int, avg_winnings_per_spin: float,
+                         cash_out_value: float, pools, economy) -> bool:
+    """Never engages with the offer -- the 'button-mashing' baseline: plays
+    every spin out to the natural end regardless."""
+    return True
+
+
+def always_cash_out(spins_remaining: int, avg_winnings_per_spin: float,
+                     cash_out_value: float, pools, economy) -> bool:
+    """Takes the very first cash-out offer, however little runway is left.
+    Maximally risk-averse, not necessarily smart -- the discount
+    (economy.cash_out_discount) makes this generally worse in expectation
+    than playing out real runway."""
+    return False
+
+
+def cash_out_near_the_end(spins_remaining: int, avg_winnings_per_spin: float,
+                           cash_out_value: float, pools, economy) -> bool:
+    """Keeps playing while there's meaningful runway left -- continuing has
+    higher expected value than the discounted guarantee gives up -- but
+    cashes out once only a couple of spins remain, where a little bad luck
+    could easily do worse than the guarantee."""
+    return spins_remaining > 2
+
+
+CONTINUATION_STRATEGIES = {
+    "always_keep_playing": always_keep_playing,
+    "always_cash_out": always_cash_out,
+    "cash_out_near_the_end": cash_out_near_the_end,
+}
