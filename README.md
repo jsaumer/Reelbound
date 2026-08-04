@@ -8,6 +8,10 @@ Each stage splits into two phases with two distinct skills: a **build phase** (a
 
 **Planning.** Engine locked (Godot 4.7); core economy decisions locked. Next milestone: prove the economy is tense headless (Roadmap Phase 1). No game code yet.
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for repo layout, commit conventions, and decision discipline.
+
 ## The planning set
 
 Start with [`00_START_HERE.md`](docs/00_START_HERE.md) — it indexes the whole set.
