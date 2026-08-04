@@ -10,8 +10,10 @@ graphics, no bonuses (K1) — this only exists to answer one question:
 ```
 python -m sim.main run                              # default config, flat_mid strategy, 10k runs
 python -m sim.main run --strategy flat_min --runs 20000
+python -m sim.main run --strategy adaptive_throttle --gamble-strategy gamble_while_behind
 python -m sim.main sweep                             # quota x spin_cap grid (D12 / D18 exploration)
 python -m sim.main sweep --quotas 50,60,70 --spin-caps 40,45,50
+python -m sim.main compare                            # Phase 3: do decisions demonstrably matter?
 ```
 
 ## Tests
@@ -28,14 +30,22 @@ python -m unittest discover -s sim/tests -v
 - `reel.py` — reel strips and the spin draw.
 - `paytable.py` — the payout resolver. Kept standalone and swappable so the
   payout math can be tuned without touching anything else.
-- `strategy.py` — pluggable bet-size strategies (`flat_min`, `flat_mid`,
-  `flat_max`) for the naive auto-player.
-- `play_phase.py` — the dual-limiter play-phase loop (D6).
+- `strategy.py` — pluggable bet-size strategies (`flat_min`/`flat_mid`/
+  `flat_max`/`adaptive_throttle`) and bank-vs-gamble strategies
+  (`never_gamble`/`always_gamble`/`gamble_while_behind`), Phase 3
+  (docs/05_ROADMAP.md).
+- `play_phase.py` — the dual-limiter play-phase loop (D6). Every win offers
+  a repeatable bank-vs-gamble-up decision (docs/02_GAME_DESIGN.md §4) —
+  a fair coin flip that only ever doubles or zeroes *pending*; bankroll is
+  untouched either way (D3). Default `gamble_strategy=never_gamble` keeps
+  Phase 1/2 behavior unchanged if you don't pass one.
 - `config.py` — every economy/machine parameter in one place, including the
-  tuned defaults and the default Payline machine.
+  tuned defaults, the default Payline machine, and `gamble_win_probability`.
 - `harness.py` — runs N play-phases, reports win/bust/out-of-spins rate,
   avg spins-to-quota, and payout volatility; checks the result against the
-  40–60% tension band; supports a quota x spin_cap sweep.
+  40–60% tension band; supports a quota x spin_cap sweep and a
+  `compare_strategies` tool for the Phase 3 exit criterion (does a decision
+  demonstrably move the numbers?).
 
 ## A property worth knowing
 

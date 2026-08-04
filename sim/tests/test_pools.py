@@ -53,6 +53,25 @@ class TestPools(unittest.TestCase):
         for earlier, later in zip(winnings_history, winnings_history[1:]):
             self.assertGreaterEqual(later, earlier)
 
+    def test_double_pending_only_affects_pending(self):
+        pools = Pools(bankroll=100.0)
+        pools.add_to_pending(15.0)
+        pools.double_pending()
+        self.assertEqual(pools.pending, 30.0)
+        self.assertEqual(pools.bankroll, 100.0)
+        self.assertEqual(pools.winnings, 0.0)
+
+    def test_forfeit_pending_zeroes_pending_without_touching_bankroll(self):
+        # Baseline gamble-up loss: the pending win vanishes, it does not
+        # drain bankroll (that's the "Hedged Gamble" boon, not baseline).
+        pools = Pools(bankroll=100.0)
+        pools.add_to_pending(15.0)
+        pools.double_pending()
+        pools.forfeit_pending()
+        self.assertEqual(pools.pending, 0.0)
+        self.assertEqual(pools.bankroll, 100.0)
+        self.assertEqual(pools.winnings, 0.0)
+
     def test_pools_has_no_way_to_credit_bankroll(self):
         # Structural guard on D3: the only public methods on Pools must not
         # be able to increase bankroll.
@@ -62,7 +81,8 @@ class TestPools(unittest.TestCase):
         ]
         self.assertEqual(
             set(public_methods),
-            {"spend_from_bankroll", "add_to_pending", "commit_pending_to_winnings"},
+            {"spend_from_bankroll", "add_to_pending", "commit_pending_to_winnings",
+             "double_pending", "forfeit_pending"},
         )
 
 

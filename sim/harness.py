@@ -12,6 +12,7 @@ import statistics
 from dataclasses import dataclass, field
 
 from sim.play_phase import Outcome, run_play_phase
+from sim.strategy import never_gamble
 
 TENSION_BAND = (0.40, 0.60)
 
@@ -30,13 +31,14 @@ class SimStats:
     final_winnings_stdev: float
 
 
-def run_many(sim_config, strategy, n_runs: int, base_seed: int = None) -> list:
+def run_many(sim_config, bet_strategy, n_runs: int, base_seed: int = None,
+             gamble_strategy=never_gamble) -> list:
     if base_seed is None:
         base_seed = sim_config.seed
     results = []
     for i in range(n_runs):
         rng = random.Random(base_seed + i)
-        results.append(run_play_phase(sim_config, strategy, rng))
+        results.append(run_play_phase(sim_config, bet_strategy, rng, gamble_strategy))
     return results
 
 
@@ -112,6 +114,30 @@ def sweep(sim_config_factory, strategy, n_runs: int, quotas: list,
             stats = summarize(results)
             rows.append((quota, spin_cap, stats))
     return rows
+
+
+def compare_strategies(sim_config, strategies: list, n_runs: int,
+                        base_seed: int = 12345) -> list:
+    """Run several (label, bet_strategy, gamble_strategy) combos against
+    the identical config/seed stream. This is the Phase-3 exit-criterion
+    tool (docs/05_ROADMAP.md: "confirm... that skilled play beats
+    button-mashing") -- a decision only "demonstrably matters" if it moves
+    these numbers against otherwise-identical conditions.
+
+    Returns [(label, SimStats), ...].
+    """
+    rows = []
+    for label, bet_strategy, gamble_strategy in strategies:
+        results = run_many(sim_config, bet_strategy, n_runs, base_seed, gamble_strategy)
+        rows.append((label, summarize(results)))
+    return rows
+
+
+def print_comparison(rows: list) -> None:
+    print(f"{'strategy':<28} {'win_rate':>9} {'bust':>7} {'oos':>7} {'avg_spins':>10}")
+    for label, stats in rows:
+        print(f"{label:<28} {stats.win_rate:9.1%} {stats.bust_rate:7.1%} "
+              f"{stats.out_of_spins_rate:7.1%} {stats.avg_spins_used:10.1f}")
 
 
 def print_sweep(rows: list) -> None:

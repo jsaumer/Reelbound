@@ -32,3 +32,14 @@ class Pools:
     def commit_pending_to_winnings(self) -> None:
         self.winnings += self.pending
         self.pending = 0.0
+
+    def double_pending(self) -> None:
+        """The win leg of a gamble-up (docs/02_GAME_DESIGN.md #4). Stays
+        entirely within pending -- bankroll is untouched either way."""
+        self.pending *= 2.0
+
+    def forfeit_pending(self) -> None:
+        """The loss leg of a gamble-up. Baseline gamble-up losses vanish
+        rather than draining bankroll (docs/03_IDEA_BACKLOG.md: sending a
+        loss to bankroll is the 'Hedged Gamble' boon, not the baseline)."""
+        self.pending = 0.0

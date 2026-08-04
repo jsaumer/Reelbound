@@ -30,6 +30,10 @@ class EconomyConfig:
     spin_cap: int
     min_bet: float
     max_bet: float
+    # Baseline bank-vs-gamble-up odds (docs/02_GAME_DESIGN.md #4, Phase 3).
+    # No locked decision pins this number -- exposed here, not hardcoded
+    # in play_phase, so it's a parameter to tune like quota/spin_cap.
+    gamble_win_probability: float = 0.5
 
 
 @dataclass
@@ -104,6 +108,7 @@ def default_economy_config() -> EconomyConfig:
         spin_cap=45,
         min_bet=1.0,
         max_bet=3.0,
+        gamble_win_probability=0.5,  # fair coin flip, see field docstring
     )
 
 
