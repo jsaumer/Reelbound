@@ -62,10 +62,11 @@ def never_gamble(pending: float, winnings: float, economy) -> bool:
 
 
 def always_gamble(pending: float, winnings: float, economy) -> bool:
-    """Presses every opportunity, no matter what. A fair coin flip is
-    EV-neutral, so this doesn't change expected winnings -- it just adds
-    variance for its own sake, with no strategic upside. Useful as a
-    "reckless" baseline to compare against a real heuristic."""
+    """Takes the gamble whenever it's offered (D25: a single flip, not a
+    ladder). A fair coin flip is EV-neutral, so this doesn't change
+    expected winnings -- it just adds variance for its own sake, with no
+    strategic upside. Useful as a "reckless" baseline to compare against a
+    real heuristic."""
     return True
 
 

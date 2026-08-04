@@ -81,7 +81,7 @@ set bet size → spin → (on win) bank it or gamble it up → (optional) fire a
 
 Decision levers:
 - **Bet sizing** — flat (safe/slow) vs big (fast/volatile), pressured by both a spin deadline and the bankroll floor.
-- **Bank vs press** — a win lands in *pending*; bank it (safe, counts) or roll into a gamble-up (double-or-nothing). The win moment is exactly when quitting is hardest. **Not offered on every win** (`D24`) — it surfaces with some probability (25% in the Phase 3 prototype), and is intended to eventually be gated behind an obtainable item/boon rather than always-available. Offering it on every single win tested as fatiguing rather than tense.
+- **Bank vs press** — a win lands in *pending*; bank it (safe, counts) or roll into a gamble-up (double-or-nothing). The win moment is exactly when quitting is hardest. **Not offered on every win** (`D24`) — it surfaces with some probability (25% in the Phase 3 prototype), and is intended to eventually be gated behind an obtainable item/boon rather than always-available. Offering it on every single win tested as fatiguing rather than tense. When it is offered, it's **one flip only, not a repeatable ladder** (`D25`) — a win banks immediately rather than offering to press again; chaining is also deferred to a future unlockable, since an uncapped ladder is an easy out for a lucky player.
 - **Bonus timing** — stored bonuses fired early (safety) or saved to stack with a big bet. Only possible because build and play are separate.
 - **Boon/curse activation** — some are player-fired one-shots; some curses force bad choices.
 

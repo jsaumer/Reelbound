@@ -10,8 +10,10 @@
 ## playtest feedback, offering it on every win got old fast; the offer is
 ## meant to eventually be gated behind an obtainable item/boon, Phase 4/5,
 ## not built yet, so this probability is the buildable part of that today).
-## When it does pause, resolve it via bank_pending()/gamble_pending(). Once
-## quota clears, every subsequent spin pauses on
+## When it does pause, resolve it via bank_pending()/gamble_pending() --
+## a single flip, not a ladder (D25): a win auto-banks rather than
+## offering to press again. Once quota clears, every subsequent spin
+## pauses on
 ## `awaiting_continuation_decision` (D23) until the caller calls
 ## keep_playing()/cash_out(). Check those flags after every spin() and
 ## after every gamble_pending() call before doing anything else.
@@ -110,9 +112,12 @@ func bank_pending() -> void:
 	_after_pending_resolved()
 
 
-## Flips the gamble-up coin. Returns true if it won (pending doubled, still
-## awaiting a decision -- the ladder continues) or false if it lost
-## (pending forfeited, decision resolved). Call only when
+## Flips the gamble-up coin -- a single flip, not a repeatable ladder
+## (D25: chaining into another gamble after a win is a future unlockable,
+## not baseline -- an uncapped ladder is an "easy out" for a lucky
+## player). Returns true if it won (pending doubled and immediately
+## banked) or false if it lost (pending forfeited). Either way the
+## decision is resolved when this returns. Call only when
 ## awaiting_gamble_decision is true.
 func gamble_pending() -> bool:
 	if not awaiting_gamble_decision:
@@ -120,10 +125,11 @@ func gamble_pending() -> bool:
 	var won := rng.randf() < gamble_win_probability
 	if won:
 		pools.double_pending()
+		pools.commit_pending_to_winnings()
 	else:
 		pools.forfeit_pending()
-		awaiting_gamble_decision = false
-		_after_pending_resolved()
+	awaiting_gamble_decision = false
+	_after_pending_resolved()
 	return won
 
 

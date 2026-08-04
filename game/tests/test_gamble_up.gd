@@ -40,20 +40,34 @@ func test_bank_pending_commits_the_full_win():
 	assert_eq(play_phase.pools.winnings, 10.0)
 
 
-func test_gamble_pending_doubles_or_forfeits():
+func test_gamble_pending_resolves_in_a_single_flip():
+	# D25: not a ladder -- a win auto-banks, a loss forfeits, either way
+	# awaiting_gamble_decision clears after exactly one flip.
 	var play_phase := _new_play_phase({"A": {5: 10.0}}, 100.0, 1000.0, 1000, 1)
 
 	play_phase.spin(1.0)
 	var pending_before: float = play_phase.pools.pending
 	var won: bool = play_phase.gamble_pending()
 
+	assert_false(play_phase.awaiting_gamble_decision)
+	assert_eq(play_phase.pools.pending, 0.0)
 	if won:
-		assert_almost_eq(play_phase.pools.pending, pending_before * 2.0, 0.001)
-		assert_true(play_phase.awaiting_gamble_decision)  # ladder continues
+		assert_almost_eq(play_phase.pools.winnings, pending_before * 2.0, 0.001)
 	else:
-		assert_eq(play_phase.pools.pending, 0.0)
-		assert_false(play_phase.awaiting_gamble_decision)
 		assert_eq(play_phase.pools.winnings, 0.0)  # forfeited, never banked
+
+
+func test_gamble_pending_is_a_noop_once_already_resolved():
+	var play_phase := _new_play_phase({"A": {5: 10.0}}, 100.0, 1000.0, 1000, 1)
+
+	play_phase.spin(1.0)
+	play_phase.gamble_pending()
+	var winnings_after_first_flip: float = play_phase.pools.winnings
+
+	var second_result: bool = play_phase.gamble_pending()
+
+	assert_false(second_result)
+	assert_eq(play_phase.pools.winnings, winnings_after_first_flip)
 
 
 func test_gambling_never_touches_bankroll():
@@ -61,23 +75,6 @@ func test_gambling_never_touches_bankroll():
 
 	play_phase.spin(1.0)
 	var bankroll_before: float = play_phase.pools.bankroll
-	while play_phase.awaiting_gamble_decision:
-		play_phase.gamble_pending()
+	play_phase.gamble_pending()
 
 	assert_eq(play_phase.pools.bankroll, bankroll_before)
-
-
-func test_gambling_until_a_loss_forfeits_everything():
-	# Keep gambling until the loop resolves on its own (a loss) -- confirms
-	# a losing flip always ends with zero pending and zero committed,
-	# regardless of how many prior doublings happened.
-	var play_phase := _new_play_phase({"A": {5: 10.0}}, 100.0, 1000.0, 1000, 1)
-
-	play_phase.spin(1.0)
-	var loops := 0
-	while play_phase.awaiting_gamble_decision and loops < 100:
-		play_phase.gamble_pending()
-		loops += 1
-
-	assert_false(play_phase.awaiting_gamble_decision)
-	assert_lt(loops, 100)  # sanity: it did resolve, not an infinite ladder

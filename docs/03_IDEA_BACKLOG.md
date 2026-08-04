@@ -34,7 +34,7 @@ A running catalogue of raw ideas to draw from during content design. Nothing her
 
 - **Free spins** — awarded spins that don't cost bankroll. The core "runway extender."
 - **Hold-and-spin** — lock symbols, re-spin the rest; builds toward a payout.
-- **Gamble-up** — double-or-nothing on a win (the press-your-luck heart). *(Baseline version built in Phase 3, currently offered at a flat probability — `D24` — as a stand-in until this bonus-feature version exists to properly gate it.)*
+- **Gamble-up** — double-or-nothing on a win (the press-your-luck heart). *(Baseline version built in Phase 3: offered at a flat probability — `D24` — as a stand-in until this bonus-feature version exists to properly gate it, and capped to a single flip rather than a repeatable ladder — `D25` — with chaining itself as a future unlockable candidate here too.)*
 - **Multiplier meter** — consecutive wins raise a global multiplier; a loss resets it.
 - **Pick-a-prize** — a small choice mini-event (introduces agency into a feature).
 - **Cascading symbols** — winning symbols vanish, new ones fall (chain potential).

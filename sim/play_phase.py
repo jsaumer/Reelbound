@@ -12,10 +12,12 @@ A win *may* offer a bank-vs-gamble-up decision (docs/02_GAME_DESIGN.md #4)
 playtest feedback, offering it on every single win got old fast, and the
 offer is meant to eventually be gated behind an obtainable item/boon,
 Phase 4/5 -- not built yet, so this probability is the buildable part of
-that today). When offered, it's repeatable while pending is nonzero --
-gambling only ever mutates pending (double on a win, zero on a loss);
-bankroll is untouched either way (D3). When not offered, the win
-auto-banks.
+that today). When offered, it's a single flip, not a repeatable ladder
+(D25): win doubles pending and immediately banks it; lose forfeits it.
+Chaining multiple gambles on the same win is also deferred to a future
+unlockable -- an uncapped ladder is an "easy out" for a lucky player.
+Gambling only ever mutates pending; bankroll is untouched either way
+(D3). When not offered, the win auto-banks.
 
 D23: clearing the quota does not itself end play (D6 already only names
 bankroll=0 / spin cap as the end triggers) -- it locks in a win (winnings
@@ -120,15 +122,19 @@ def _resolve_gamble(pools: Pools, economy, gamble_strategy, rng) -> None:
         # player had chosen bank with no gamble ever available.
         pools.commit_pending_to_winnings()
         return
-    while pools.pending > 0:
-        if not gamble_strategy(pools.pending, pools.winnings, economy):
-            pools.commit_pending_to_winnings()
-            return
-        if rng.random() < economy.gamble_win_probability:
-            pools.double_pending()
-        else:
-            pools.forfeit_pending()
-            return
+    if not gamble_strategy(pools.pending, pools.winnings, economy):
+        pools.commit_pending_to_winnings()
+        return
+    # D25: a single flip only, win or lose -- chaining into a ladder (win,
+    # then get offered to gamble the double again) is a future unlockable,
+    # not baseline. An uncapped ladder is an "easy out" for a lucky
+    # player: a chain of wins compounds into an escape valve the design
+    # shouldn't hand out for free.
+    if rng.random() < economy.gamble_win_probability:
+        pools.double_pending()
+        pools.commit_pending_to_winnings()
+    else:
+        pools.forfeit_pending()
 
 
 def _resolve_quota_cleared_choice(pools: Pools, sim_config, spins_used: int,

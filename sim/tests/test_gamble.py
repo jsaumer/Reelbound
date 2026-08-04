@@ -29,19 +29,6 @@ class _ScriptedRNG:
         return self._gamble_values.pop(0)
 
 
-def _gamble_once_then_bank():
-    """A one-shot gamble strategy: presses exactly once, then always banks."""
-    state = {"gambled": False}
-
-    def strategy(pending, winnings, economy):
-        if not state["gambled"]:
-            state["gambled"] = True
-            return True
-        return False
-
-    return strategy
-
-
 class TestGambleUp(unittest.TestCase):
     def test_never_gamble_matches_old_auto_commit_behavior(self):
         machine = _single_symbol_machine(paytable={"A": {5: 10.0}})
@@ -73,7 +60,9 @@ class TestGambleUp(unittest.TestCase):
 
         self.assertEqual(result.final_winnings, 10.0)
 
-    def test_gamble_win_then_bank_doubles_the_win(self):
+    def test_gamble_win_banks_the_doubled_amount_immediately(self):
+        # D25: a single flip, not a ladder -- a win auto-banks rather than
+        # offering to press again.
         machine = _single_symbol_machine(paytable={"A": {5: 10.0}})
         economy = EconomyConfig(starting_bankroll=100.0, quota=1000.0,
                                  spin_cap=1, min_bet=1.0, max_bet=1.0,
@@ -83,7 +72,7 @@ class TestGambleUp(unittest.TestCase):
         # 0.0: offer appears. 0.1 < 0.5 gamble_win_probability -> win.
         rng = _ScriptedRNG([0.0, 0.1])
         result = run_play_phase(sim_config, flat_min, rng,
-                                 gamble_strategy=_gamble_once_then_bank())
+                                 gamble_strategy=always_gamble)
 
         self.assertEqual(result.final_winnings, 20.0)
 
@@ -94,13 +83,26 @@ class TestGambleUp(unittest.TestCase):
                                  gamble_offer_probability=1.0)
         sim_config = SimConfig(machine=machine, economy=economy, seed=1)
 
-        # 0.0: offer appears. Then win once (double), then lose (forfeit).
-        rng = _ScriptedRNG([0.0, 0.1, 0.9])
+        # 0.0: offer appears. 0.9 >= 0.5 gamble_win_probability -> lose.
+        rng = _ScriptedRNG([0.0, 0.9])
         result = run_play_phase(sim_config, flat_min, rng,
                                  gamble_strategy=always_gamble)
 
         self.assertEqual(result.final_winnings, 0.0)
         self.assertEqual(result.winnings_deltas, [0.0])
+
+    def test_a_won_flip_does_not_offer_a_second_gamble(self):
+        # The scripted RNG only has two values -- if the loop tried to
+        # gamble again after a win, .random() would raise IndexError.
+        machine = _single_symbol_machine(paytable={"A": {5: 10.0}})
+        economy = EconomyConfig(starting_bankroll=100.0, quota=1000.0,
+                                 spin_cap=1, min_bet=1.0, max_bet=1.0,
+                                 gamble_offer_probability=1.0)
+        sim_config = SimConfig(machine=machine, economy=economy, seed=1)
+
+        rng = _ScriptedRNG([0.0, 0.1])  # offer appears, then a win
+        run_play_phase(sim_config, flat_min, rng, gamble_strategy=always_gamble)
+        # No exception -- the flip resolved and stopped there.
 
     def test_gambling_never_touches_bankroll(self):
         machine = _single_symbol_machine(paytable={"A": {5: 10.0}})
@@ -109,7 +111,7 @@ class TestGambleUp(unittest.TestCase):
                                  gamble_offer_probability=1.0)
         sim_config = SimConfig(machine=machine, economy=economy, seed=1)
 
-        rng = _ScriptedRNG([0.0, 0.1, 0.9])
+        rng = _ScriptedRNG([0.0, 0.9])
         result = run_play_phase(sim_config, flat_min, rng,
                                  gamble_strategy=always_gamble)
 

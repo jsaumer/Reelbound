@@ -328,30 +328,35 @@ func _play_win_reveal(payout: float, bet: float) -> void:
 	if tier != "":
 		await _big_win_banner.play(tier)
 
-	# Bank-vs-gamble-up (Phase 3): repeatable while pending is nonzero.
-	while play_phase.awaiting_gamble_decision:
+	# Bank-vs-gamble-up (Phase 3). D25: a single flip, not a ladder -- once
+	# offered, the player either banks or takes exactly one gamble; a win
+	# auto-banks rather than offering to press again (chaining further is
+	# a future unlockable, not baseline -- see economy_config.gd).
+	if play_phase.awaiting_gamble_decision:
 		_pending_label.text = "Pending: %.1f" % pools.pending
-		_gamble_info_label.text = "Bank %.1f, or gamble double-or-nothing?" % pools.pending
+		_gamble_info_label.text = ("Bank %.1f, or gamble once for double-or-nothing?"
+				% pools.pending)
 		var wants_to_gamble := await _await_choice(_gamble_row, _gamble_button, _bank_button)
 		if wants_to_gamble:
 			var pending_before: float = pools.pending
 			var won: bool = play_phase.gamble_pending()
-			await _play_gamble_result(won, pending_before, pools.pending)
+			await _play_gamble_result(won, pending_before)
 		else:
 			play_phase.bank_pending()
 
 	_pending_label.text = "Pending: 0.0"
 
 
-## Explicit won/lost feedback for a single gamble-up flip -- color flash +
-## a status line, so the outcome reads clearly instead of just a silent
-## number change.
-func _play_gamble_result(won: bool, pending_before: float, pending_after: float) -> void:
-	_pending_label.text = "Pending: %.1f" % pending_after
+## Explicit won/lost feedback for the single gamble-up flip -- color flash
+## + a status line, so the outcome reads clearly instead of just a silent
+## number change. Pending is always 0 by the time this runs (a win banks
+## immediately, a loss forfeits) -- see gamble_pending() in play_phase.gd.
+func _play_gamble_result(won: bool, pending_before: float) -> void:
+	_pending_label.text = "Pending: 0.0"
 
 	var flash_color: Color
 	if won:
-		_status_label.text = "GAMBLE WON! %.1f -> %.1f" % [pending_before, pending_after]
+		_status_label.text = "GAMBLE WON! Banked %.1f" % (pending_before * 2.0)
 		flash_color = Color(0.35, 0.9, 0.4)
 	else:
 		_status_label.text = "GAMBLE LOST -- %.1f gone." % pending_before
