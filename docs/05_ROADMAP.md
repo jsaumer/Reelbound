@@ -18,11 +18,11 @@ The single most important validation. Can be a spreadsheet or a tiny headless sc
 - **Exit:** the numbers produce tension on paper, **without bonuses**. If they don't, fix the design *before* building anything. ✅ Met 2026-08-04 — see `sim/README.md` and the D12/D18 locks in `06_OPEN_QUESTIONS.md`.
 
 ## Phase 2 — Spin Feel Prototype (in Godot 4.7) *(current)*
-Now prove the *feel*, with placeholder art.
-- [ ] One machine that spins, eases to a stop, and resolves a payout.
-- [ ] Three pools shown and updating.
-- [ ] Real juice on placeholder art: easing, win burst, number pop, near-miss anticipation.
-- **Exit:** pulling the lever feels good even with grey boxes.
+Now prove the *feel*, with placeholder art. **This phase is not a formality.** The reel settling into its final position — the deceleration, the beat of not-yet-knowing before the symbol locks — is a moment-to-moment experience in its own right, as important to the game's success as the economy Phase 1 validated. See `04` pillar 1. If the settle doesn't land, fix *this* before adding anything else.
+- [x] One machine that spins, eases to a stop, and resolves a payout. *(`game/scripts/ui/reel_view.gd`: flicker → left-to-right staggered stop → elastic settle bounce, driven by the same economy model as `sim/`.)*
+- [x] Three pools shown and updating. *(`game/scripts/main.gd`: bankroll debits immediately on bet; pending ticks up and winnings tallies in after the reels settle.)*
+- [~] Real juice on placeholder art: easing, win burst, number pop, near-miss anticipation. *(Easing/settle bounce, win flash, and number tween done. Near-miss anticipation is only implicit today, via left-to-right reel stagger — no dedicated near-miss detection/callout yet; revisit if the settle alone doesn't carry enough tension.)*
+- **Exit:** pulling the lever feels good even with grey boxes. **Not yet verified** — this requires actually running it (`tools/godot/Godot_v4.7.1-stable_win64.exe --path game`) and judging the feel by hand; that's not something to check off from the code.
 
 ## Phase 3 — Play-Phase Decisions
 Layer the live decisions onto the proven loop.

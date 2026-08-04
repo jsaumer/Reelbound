@@ -13,6 +13,7 @@ Committing to art before those are chosen risks throwaway work. So for now we on
 ## Guiding principles (provisional)
 
 1. **Juice is the point.** A slot's appeal is the *feel of the pull* — easing on reel stops, anticipation on near-misses, satisfying win bursts, number pops, screen shake on big hits. Budget for this from day one; it's not polish, it's core.
+   - **The reel settling into its final position is the single highest-priority beat in that list.** That instant — the reel decelerating and locking onto a symbol, with the tension of not yet knowing if it's a winner — is a moment-to-moment experience in its own right, independent of the economy math underneath it. Phase 1 proved the numbers are tense on paper; Phase 2's job is to prove that same tension *lands* in the body, spin to spin. If the settle feels flat, the economy being sound won't save the game. Treat this beat as load-bearing, not decorative — see the Phase 2 exit criterion in `05`.
 2. **Legibility first.** Three pools (bankroll / winnings / pending) must be readable at a glance and clearly distinct — this is a UI-design problem before it's an aesthetic one. Players track these constantly.
 3. **Two-phase visual identity.** The build phase (calm, considered, editor-like) and play phase (energetic, kinetic) should *feel* different, reinforcing the two-skills design.
 4. **Readable symbol hierarchy.** Value tiers must be instantly distinguishable (shape/color/size), so players read a spin outcome without effort.
