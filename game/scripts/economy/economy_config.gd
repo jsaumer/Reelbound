@@ -46,6 +46,15 @@ const SPIN_CAP := 45
 const MIN_BET := 1.0
 const MAX_BET := 3.0
 
+# Phase 3 (docs/05_ROADMAP.md). Baseline bank-vs-gamble-up odds -- a fair
+# coin flip (docs/02_GAME_DESIGN.md #4).
+const GAMBLE_WIN_PROBABILITY := 0.5
+
+# D23: post-quota cash-out discount. Deliberately unfavorable -- the
+# guaranteed cash-out is this fraction of the projected value of playing
+# on, so cashing out is a real trade-off, not a free upgrade.
+const CASH_OUT_DISCOUNT := 0.4
+
 # Symbol -> display color, for the placeholder grey-box reel cells.
 const SYMBOL_COLORS := {
 	"cherry": Color(0.85, 0.25, 0.3),

@@ -1,12 +1,16 @@
-## Phase-2 spin-feel prototype (docs/05_ROADMAP.md Phase 2): one Payline
-## machine, spin -> ease-to-stop -> payout, three pools shown and updating,
-## juice on placeholder art. Built entirely in code (no hand-authored
-## scene tree) so the whole UI is one readable, greppable file.
+## Phase 2/3 prototype (docs/05_ROADMAP.md): one Payline machine, spin ->
+## ease-to-stop -> payout, three pools shown and updating, juice on
+## placeholder art, plus the Phase 3 play-phase decisions -- bet sizing,
+## bank-vs-gamble-up, and the D23 post-quota cash-out choice. Built
+## entirely in code (no hand-authored scene tree) so the whole UI is one
+## readable, greppable file.
 extends Control
 
 const REEL_STAGGER := 0.15
 const BASE_FLICKER := 0.5
 const ANTICIPATION_HOLD := 0.7  # extra hold on the reel that decides a developing line
+
+signal _choice_made(result: bool)
 
 var play_phase: PlayPhase
 var pools: Pools
@@ -24,6 +28,16 @@ var _info_button: Button
 var _paytable_panel: PaytablePanel
 var _big_win_banner: BigWinBanner
 
+var _gamble_row: HBoxContainer
+var _gamble_info_label: Label
+var _gamble_button: Button
+var _bank_button: Button
+
+var _continuation_row: HBoxContainer
+var _continuation_label: Label
+var _cash_out_button: Button
+var _keep_playing_button: Button
+
 
 func _ready() -> void:
 	_build_play_phase()
@@ -40,7 +54,8 @@ func _build_play_phase() -> void:
 	play_phase = PlayPhase.new(
 			machine, pools, EconomyConfig.DEFAULT_PAYTABLE,
 			EconomyConfig.DEFAULT_PAYLINES, EconomyConfig.MIN_MATCH,
-			EconomyConfig.QUOTA, EconomyConfig.SPIN_CAP, rng)
+			EconomyConfig.QUOTA, EconomyConfig.SPIN_CAP, rng,
+			EconomyConfig.GAMBLE_WIN_PROBABILITY, EconomyConfig.CASH_OUT_DISCOUNT)
 
 
 func _build_ui() -> void:
@@ -113,6 +128,44 @@ func _build_ui() -> void:
 	_spin_button.pressed.connect(_on_spin_pressed)
 	controls_row.add_child(_spin_button)
 
+	# Bank-vs-gamble-up row (Phase 3, docs/02_GAME_DESIGN.md #4). Hidden
+	# until a win lands in pending.
+	_gamble_row = HBoxContainer.new()
+	_gamble_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_gamble_row.add_theme_constant_override("separation", 16)
+	_gamble_row.visible = false
+	root.add_child(_gamble_row)
+
+	_gamble_info_label = Label.new()
+	_gamble_row.add_child(_gamble_info_label)
+
+	_bank_button = Button.new()
+	_bank_button.text = "BANK"
+	_gamble_row.add_child(_bank_button)
+
+	_gamble_button = Button.new()
+	_gamble_button.text = "GAMBLE (50/50)"
+	_gamble_row.add_child(_gamble_button)
+
+	# Post-quota keep-playing-vs-cash-out row (D23). Hidden until quota
+	# first clears.
+	_continuation_row = HBoxContainer.new()
+	_continuation_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_continuation_row.add_theme_constant_override("separation", 16)
+	_continuation_row.visible = false
+	root.add_child(_continuation_row)
+
+	_continuation_label = Label.new()
+	_continuation_row.add_child(_continuation_label)
+
+	_keep_playing_button = Button.new()
+	_keep_playing_button.text = "KEEP PLAYING"
+	_continuation_row.add_child(_keep_playing_button)
+
+	_cash_out_button = Button.new()
+	_cash_out_button.text = "CASH OUT"
+	_continuation_row.add_child(_cash_out_button)
+
 	_status_label = Label.new()
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.add_theme_font_size_override("font_size", 20)
@@ -167,7 +220,7 @@ func _refresh_pool_labels() -> void:
 
 
 func _on_spin_pressed() -> void:
-	if play_phase.is_over():
+	if play_phase.is_over() or play_phase.has_pending_decision():
 		return
 	_spin_button.disabled = true
 	_bet_spinbox.editable = false
@@ -217,9 +270,16 @@ func _on_spin_pressed() -> void:
 	await get_tree().create_timer(last_flicker + ReelView.SETTLE_BOUNCE_DURATION + 0.05).timeout
 
 	if payout > 0.0:
-		await _play_win_reveal(payout, winnings_before, bet)
+		await _play_win_reveal(payout, bet)
 	else:
 		_pending_label.text = "Pending: 0.0"
+
+	if play_phase.awaiting_continuation_decision:
+		await _play_continuation_choice()
+
+	var winnings_tween := create_tween()
+	winnings_tween.tween_method(_set_winnings_display, winnings_before, pools.winnings, 0.5)
+	await winnings_tween.finished
 
 	_refresh_pool_labels()
 	_handle_outcome()
@@ -232,7 +292,7 @@ func _schedule_pulse(reel_index: int, row: int, start_delay: float, pulse_durati
 	_reel_views[reel_index].pulse_cell(row, pulse_duration)
 
 
-func _play_win_reveal(payout: float, winnings_before: float, bet: float) -> void:
+func _play_win_reveal(payout: float, bet: float) -> void:
 	var tween := create_tween()
 	tween.tween_method(_set_pending_display, 0.0, payout, 0.4)
 	await tween.finished
@@ -246,11 +306,43 @@ func _play_win_reveal(payout: float, winnings_before: float, bet: float) -> void
 	if tier != "":
 		await _big_win_banner.play(tier)
 
-	var settle_tween := create_tween()
-	settle_tween.tween_method(_set_winnings_display, winnings_before, pools.winnings, 0.5)
-	await settle_tween.finished
+	# Bank-vs-gamble-up (Phase 3): repeatable while pending is nonzero.
+	while play_phase.awaiting_gamble_decision:
+		_pending_label.text = "Pending: %.1f" % pools.pending
+		_gamble_info_label.text = "Bank %.1f, or gamble double-or-nothing?" % pools.pending
+		var wants_to_gamble := await _await_choice(_gamble_row, _gamble_button, _bank_button)
+		if wants_to_gamble:
+			play_phase.gamble_pending()
+			_pending_label.text = "Pending: %.1f" % pools.pending
+		else:
+			play_phase.bank_pending()
 
 	_pending_label.text = "Pending: 0.0"
+
+
+## D23: offered every spin once quota is cleared. Awaitable.
+func _play_continuation_choice() -> void:
+	_continuation_label.text = ("Quota cleared! Keep playing, or cash out now for +%.1f?"
+			% play_phase.cash_out_offer)
+	var wants_cash_out := await _await_choice(
+			_continuation_row, _cash_out_button, _keep_playing_button)
+	if wants_cash_out:
+		play_phase.cash_out()
+	else:
+		play_phase.keep_playing()
+
+
+## Shows `row`, waits for either button, hides `row`, and returns true if
+## `button_true` was the one pressed.
+func _await_choice(row: Control, button_true: Button, button_false: Button) -> bool:
+	row.visible = true
+	var on_true := func(): _choice_made.emit(true)
+	var on_false := func(): _choice_made.emit(false)
+	button_true.pressed.connect(on_true, CONNECT_ONE_SHOT)
+	button_false.pressed.connect(on_false, CONNECT_ONE_SHOT)
+	var result: bool = await _choice_made
+	row.visible = false
+	return result
 
 
 func _set_pending_display(value: float) -> void:
