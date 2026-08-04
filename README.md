@@ -6,7 +6,7 @@ Each stage splits into two phases with two distinct skills: a **build phase** (a
 
 ## Status
 
-**Planning.** Engine locked (Godot 4.7); core economy decisions locked. Next milestone: prove the economy is tense headless (Roadmap Phase 1). No game code yet.
+**Phase 1 complete.** Engine locked (Godot 4.7); core economy decisions locked; the headless economy prototype ([`sim/`](sim/)) clears its tension bar — 55.1% win rate at 20k naive-play runs, inside the 40–60% target band. Next milestone: Roadmap Phase 2, a spin-feel prototype in Godot. No Godot game code yet.
 
 ## Contributing
 

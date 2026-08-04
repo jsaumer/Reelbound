@@ -2,22 +2,22 @@
 
 Engine-agnostic. Ordered so that the **make-or-break questions are answered cheapest and first**: decide the engine, prove the economy is fun, then build the visual game on proven foundations.
 
-## Phase 0 — Planning & Decisions *(current)*
+## Phase 0 — Planning & Decisions *(complete)*
 Reach the decisions that gate everything else.
 - [x] Design set drafted (this document set).
 - [x] **Engine decision → Godot 4.7** (E1 locked 2026-08-03). Optional non-blocking "spin feel" spike remains as a workflow confidence check.
-- [ ] Lock provisional design decisions enough to prototype: win condition (D6), build budget shape (D5), stake-return model (D3).
-- **Exit:** an engine is chosen and the core economy is specified precisely enough to prototype.
+- [x] Lock provisional design decisions enough to prototype: win condition (D6), build budget shape (D5), stake-return model (D3). *(All three locked 2026-08-03, see `06`.)*
+- **Exit:** an engine is chosen and the core economy is specified precisely enough to prototype. ✅
 
-## Phase 1 — Prove the Economy (no visuals needed)
+## Phase 1 — Prove the Economy (no visuals needed) *(complete)*
 The single most important validation. Can be a spreadsheet or a tiny headless script — **independent of the engine choice.** Model the **pure economy with no bonuses** — bonuses are a later unlock (`08`), and the core must be tense without them.
-- [ ] Model the three-pool loop: bankroll → bet → spin → winnings.
-- [ ] Approximate reel payout math (average return per spin, variance) — start with the **Payline** type (`07`); add other types once the baseline holds.
-- [ ] Answer: is a run **tense** — winnable ~40–60% with naive play — rather than trivial or impossible? *(No-bonus core must clear this bar on its own.)*
-- [ ] Simulate many auto-played runs; read win rate, bust rate, spins-to-quota, volatility.
-- **Exit:** the numbers produce tension on paper, **without bonuses**. If they don't, fix the design *before* building anything.
+- [x] Model the three-pool loop: bankroll → bet → spin → winnings. *(`sim/pools.py`, `sim/play_phase.py`.)*
+- [x] Approximate reel payout math (average return per spin, variance) — start with the **Payline** type (`07`); add other types once the baseline holds. *(`sim/reel.py`, `sim/paytable.py`.)*
+- [x] Answer: is a run **tense** — winnable ~40–60% with naive play — rather than trivial or impossible? *(No-bonus core must clear this bar on its own.)* **Yes — 55.1% win rate at 20k runs.**
+- [x] Simulate many auto-played runs; read win rate, bust rate, spins-to-quota, volatility. *(`sim/harness.py`.)*
+- **Exit:** the numbers produce tension on paper, **without bonuses**. If they don't, fix the design *before* building anything. ✅ Met 2026-08-04 — see `sim/README.md` and the D12/D18 locks in `06_OPEN_QUESTIONS.md`.
 
-## Phase 2 — Spin Feel Prototype (in Godot 4.7)
+## Phase 2 — Spin Feel Prototype (in Godot 4.7) *(current)*
 Now prove the *feel*, with placeholder art.
 - [ ] One machine that spins, eases to a stop, and resolves a payout.
 - [ ] Three pools shown and updating.

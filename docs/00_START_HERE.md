@@ -1,6 +1,6 @@
 # Reelbound — Planning Set
 
-**This is planning only. No engine chosen, no game code, no builds.** The goal of this document set is to think the game through end-to-end and reach a few key decisions — engine first — before any implementation begins.
+**Engine is locked (Godot 4.7) and the Phase-1 headless economy prototype (`sim/`) has passed validation. No Godot game code yet.** The goal of this document set is to think the game through end-to-end and reach key decisions before/alongside implementation.
 
 ## What Reelbound is
 
@@ -32,7 +32,7 @@ Progression runs on several axes: **symbol density** (what's on the reels — sy
 ## How to use this set
 
 1. ~~Work **01 Engine Evaluation** to a decision first~~ → **Done: engine locked to Godot 4.7 (E1).** Doc 01 stands as the reasoning of record.
-2. Harden **02 Game Design** (engine-independent) and prove the economy headless (ROADMAP Phase 1) — the next gating work.
+2. ~~Harden **02 Game Design** and prove the economy headless (ROADMAP Phase 1)~~ → **Done: `sim/` clears the 40–60% tension band (55.1% win rate); D12/D18 locked.** Next gating work is ROADMAP **Phase 2** (Godot spin-feel prototype).
 3. Feed loose ideas into **03 Idea Backlog** continuously.
 4. Now that the engine is settled, **04 Art Direction** can begin firming once design/theme lock.
 5. Keep **06 Open Questions** current — it's the single source of truth for what's decided vs. pending.
