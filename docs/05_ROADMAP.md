@@ -26,9 +26,9 @@ Now prove the *feel*, with placeholder art. **This phase is not a formality.** T
 
 ## Phase 3 — Play-Phase Decisions *(current)*
 Layer the live decisions onto the proven loop.
-- [x] Bet sizing; bank vs. gamble-up (pending pool). *(`sim/strategy.py`, `sim/play_phase.py`: adaptive bet-sizing + a repeatable bank-vs-gamble-up decision after every win, D23's post-quota cash-out choice on top. Not yet mirrored into `game/` — sim first, per plan.)* Stored-bonus timing is **not applicable yet** — bonuses don't exist until Phase 5.7; not stubbed out.
+- [x] Bet sizing; bank vs. gamble-up (pending pool). *(`sim/strategy.py`, `sim/play_phase.py`: adaptive bet-sizing + a repeatable bank-vs-gamble-up decision after every win, D23's post-quota cash-out choice on top. Mirrored into `game/scripts/economy/play_phase.gd` as a UI-driven state machine, with a bank/gamble row and a keep-playing/cash-out row in `main.gd`.)* Stored-bonus timing is **not applicable yet** — bonuses don't exist until Phase 5.7; not stubbed out.
 - [x] Confirm (via the Phase-1 model or playtests) that skilled play beats button-mashing. *(`python -m sim.main compare`, 2026-08-04: `adaptive_throttle` bet-sizing alone lifts win rate 55.1% → 60.3%. `gamble_while_behind` alone is roughly a wash — an honest result, not tuned to look good; a fair-odds gamble is EV-neutral, so it shouldn't move win rate much by itself.)*
-- **Exit:** decisions demonstrably matter. **Met for bet-sizing** (sim-confirmed). Gamble-up and the D23 cash-out choice are mechanically correct and tested but not yet confirmed to matter *in the actual game* (`game/` mirror still pending).
+- **Exit:** decisions demonstrably matter. **Met for bet-sizing** (sim-confirmed). Gamble-up and the D23 cash-out choice are built and tested in both `sim/` and `game/`, but the actual *feel* of those decisions in play hasn't been hand-tested yet — same caveat as Phase 2's juice; run it and see whether they land.
 
 ## Phase 4 — Build Phase + End-to-End Stage
 Make the player an author.
