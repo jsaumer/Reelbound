@@ -57,6 +57,20 @@ const SYMBOL_COLORS := {
 	"crown": Color(0.75, 0.35, 0.85),
 }
 
+# Symbol -> generic silhouette icon (placeholder art, not final style --
+# see docs/04_ART_DIRECTION.md). Read together with SYMBOL_COLORS: color
+# encodes value tier, shape encodes identity (pillar 4, "readable symbol
+# hierarchy" -- shape/color/size together, not one alone).
+const SYMBOL_ICON_PATHS := {
+	"cherry": "res://assets/symbols/cherry.svg",
+	"lemon": "res://assets/symbols/lemon.svg",
+	"bell": "res://assets/symbols/bell.svg",
+	"clover": "res://assets/symbols/clover.svg",
+	"bar": "res://assets/symbols/bar.svg",
+	"star": "res://assets/symbols/star.svg",
+	"crown": "res://assets/symbols/crown.svg",
+}
+
 
 static func build_default_reel_strips() -> Array:
 	var strip := ReelMachine.build_strip(DEFAULT_SYMBOL_WEIGHTS)

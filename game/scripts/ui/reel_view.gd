@@ -1,7 +1,9 @@
-## One reel column of placeholder "grey box" cells. Spins by flickering
-## random symbols, then eases to a stop with a settle bounce.
+## One reel column of placeholder cells. Spins by flickering random symbols,
+## then eases to a stop with a settle bounce. Each cell is a tier-colored
+## panel with a generic silhouette icon on top -- color encodes value tier,
+## shape encodes symbol identity (docs/04_ART_DIRECTION.md pillar 4).
 ##
-## This settle -- the deceleration and the beat of not-yet-knowing before a
+## The settle -- the deceleration and the beat of not-yet-knowing before a
 ## symbol locks in -- is treated as the single most important piece of feel
 ## in this whole prototype (docs/04_ART_DIRECTION.md pillar 1). It is not
 ## decorative: Phase 1 already proved the economy is tense on paper: this
@@ -12,10 +14,14 @@ class_name ReelView
 extends VBoxContainer
 
 const CELL_SIZE := Vector2(96, 96)
+const ICON_SIZE := Vector2(60, 60)
 const FLICKER_INTERVAL := 0.05
 
-var _cells: Array = []       # Array[Label]
-var _cell_styles: Array = [] # Array[StyleBoxFlat], one per cell
+static var _texture_cache: Dictionary = {}
+
+var _cell_panels: Array = []  # Array[Panel]
+var _cell_styles: Array = []  # Array[StyleBoxFlat], one per cell
+var _cell_icons: Array = []   # Array[TextureRect]
 var _all_symbols: Array = []
 var _rng := RandomNumberGenerator.new()
 
@@ -30,27 +36,44 @@ func setup(num_rows: int, all_symbols: Array) -> void:
 		style.border_color = Color(0.4, 0.4, 0.46)
 		style.set_corner_radius_all(6)
 
-		var label := Label.new()
-		label.custom_minimum_size = CELL_SIZE
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 30)
-		label.add_theme_stylebox_override("normal", style)
+		var panel := Panel.new()
+		panel.custom_minimum_size = CELL_SIZE
+		panel.add_theme_stylebox_override("panel", style)
 
-		_cells.append(label)
+		var icon := TextureRect.new()
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.anchor_left = 0.5
+		icon.anchor_top = 0.5
+		icon.anchor_right = 0.5
+		icon.anchor_bottom = 0.5
+		icon.offset_left = -ICON_SIZE.x / 2.0
+		icon.offset_top = -ICON_SIZE.y / 2.0
+		icon.offset_right = ICON_SIZE.x / 2.0
+		icon.offset_bottom = ICON_SIZE.y / 2.0
+		panel.add_child(icon)
+
+		_cell_panels.append(panel)
 		_cell_styles.append(style)
-		add_child(label)
+		_cell_icons.append(icon)
+		add_child(panel)
 
 
 func set_symbols(symbols: Array) -> void:
-	for i in range(_cells.size()):
+	for i in range(_cell_panels.size()):
 		_set_cell_symbol(i, symbols[i])
 
 
 func _set_cell_symbol(index: int, symbol: String) -> void:
-	_cells[index].text = symbol.substr(0, 1).to_upper()
+	_cell_icons[index].texture = _get_icon_texture(symbol)
 	_cell_styles[index].bg_color = EconomyConfig.SYMBOL_COLORS.get(
 			symbol, Color(0.5, 0.5, 0.5))
+
+
+static func _get_icon_texture(symbol: String) -> Texture2D:
+	if not _texture_cache.has(symbol):
+		var path: String = EconomyConfig.SYMBOL_ICON_PATHS.get(symbol, "")
+		_texture_cache[symbol] = load(path) if path != "" else null
+	return _texture_cache[symbol]
 
 
 ## Flickers random symbols for `flicker_duration` seconds, lands on
@@ -58,7 +81,7 @@ func _set_cell_symbol(index: int, symbol: String) -> void:
 func spin_to(final_symbols: Array, flicker_duration: float) -> void:
 	var elapsed := 0.0
 	while elapsed < flicker_duration:
-		for i in range(_cells.size()):
+		for i in range(_cell_panels.size()):
 			_set_cell_symbol(i, _all_symbols[_rng.randi_range(0, _all_symbols.size() - 1)])
 		await get_tree().create_timer(FLICKER_INTERVAL).timeout
 		elapsed += FLICKER_INTERVAL

@@ -22,7 +22,7 @@ Now prove the *feel*, with placeholder art. **This phase is not a formality.** T
 - [x] One machine that spins, eases to a stop, and resolves a payout. *(`game/scripts/ui/reel_view.gd`: flicker → left-to-right staggered stop → elastic settle bounce, driven by the same economy model as `sim/`.)*
 - [x] Three pools shown and updating. *(`game/scripts/main.gd`: bankroll debits immediately on bet; pending ticks up and winnings tallies in after the reels settle.)*
 - [~] Real juice on placeholder art: easing, win burst, number pop, near-miss anticipation. *(Easing/settle bounce, win flash, and number tween done. Near-miss anticipation is only implicit today, via left-to-right reel stagger — no dedicated near-miss detection/callout yet; revisit if the settle alone doesn't carry enough tension.)*
-- **Exit:** pulling the lever feels good even with grey boxes. **Not yet verified** — this requires actually running it (`tools/godot/Godot_v4.7.1-stable_win64.exe --path game`) and judging the feel by hand; that's not something to check off from the code.
+- **Exit:** pulling the lever feels good even with grey boxes. **Partially verified 2026-08-04** — the reel settle-bounce itself was hand-tested and confirmed to feel good. Still open: win burst/number pop and the overall "pulling the lever" experience end-to-end haven't been separately confirmed, and near-miss anticipation isn't built yet (see above).
 
 ## Phase 3 — Play-Phase Decisions
 Layer the live decisions onto the proven loop.
