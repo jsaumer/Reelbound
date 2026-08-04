@@ -18,3 +18,7 @@ export_presets.cfg
 build/
 dist/
 *.tmp
+
+# Python (sim/)
+__pycache__/
+*.pyc
