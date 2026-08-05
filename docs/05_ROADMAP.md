@@ -31,11 +31,12 @@ Layer the live decisions onto the proven loop.
 - **Exit:** decisions demonstrably matter. **Met for bet-sizing** (sim-confirmed) and **hand-confirmed for feel 2026-08-04**, including after the `D24`/`D25` gamble-up refinements — "feels good for the absolute base gameplay." Playtesting also produced a **structural upgrades** progression idea (more paylines/reels as a distinct unlock axis from symbol density) logged in `02_GAME_DESIGN.md` §7 / `03_IDEA_BACKLOG.md` for when meta-progression (Phase 6) is designed.
 
 ## Phase 4 — Build Phase + End-to-End Stage
-Make the player an author.
+Make the player an author. Pre-implementation planning (2026-08-04) landed several decisions before any code: `D28`-`D30` (the shelf/Relic system, reel editor split, shelf content tiers) and `D31` (the play phase is a linear path of nodes over one continuous economy, not a `D20` reversal — see `02_GAME_DESIGN.md` §4).
 - [ ] Splittable build budget (machine vs. bankroll).
-- [ ] Symbol/reel editing UI (the "mix of code + visual authoring" in action).
-- [ ] A full single stage playable start-to-finish by a human.
-- [ ] **Ample purchase opportunity.** Looking at the genre's best (Balatro-likes, `Luck be a Landlord`, etc.), the shelf/shop needs to give the player generous, frequent chances to buy symbols and buffs during the build phase — not a thin trickle. This sharpens `D5`'s "small, curated, rotating shelf" without contradicting it: curated ≠ scarce. Revisit shelf size/refresh cadence and buff catalog breadth explicitly when this phase starts.
+- [ ] Reel editor (mechanical density tuning, `D29`) + shelf (Relics, `D28`/`D30` — Wild is Phase 4's only shelf content) — the "mix of code + visual authoring" in action.
+- [ ] Stage path: minor/elite/event/rest/treasure nodes (`D31`), linear sequence, one shared economy, no branching yet.
+- [ ] A full single stage playable start-to-finish by a human: build → walk the path → result.
+- [ ] **Ample purchase opportunity.** Looking at the genre's best (Balatro-likes, `Luck be a Landlord`, etc.), the shelf/shop needs to give the player generous, frequent chances to buy Relics during the build phase — not a thin trickle. This sharpens `D5`'s "small, curated, rotating shelf" without contradicting it: curated ≠ scarce.
 - **Exit:** one complete stage loop is playable in the engine.
 
 ## Phase 5 — Boons, Curses, Bet Types

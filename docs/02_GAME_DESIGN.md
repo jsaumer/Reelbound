@@ -103,6 +103,20 @@ Decision levers:
 - **Bonus timing** — stored bonuses fired early (safety) or saved to stack with a big bet. Only possible because build and play are separate.
 - **Boon/curse activation** — some are player-fired one-shots; some curses force bad choices.
 
+### Stage path — LOCKED (D31)
+
+The play phase isn't one undifferentiated spin session — it's a **path of nodes** the player walks through, each a different flavor of turn, all drawing from **one continuous economy**. `D6` is unchanged: a single bankroll, a single winnings total, a single spin cap, for the whole stage. Node type changes what happens on a given turn, not the underlying rules:
+
+- **Minor** — a plain spin.
+- **Elite** — a spin with a temporary modifier (a forced curse, harsher odds) for a better reward.
+- **Event** — no spin; a themed choice with an immediate pool effect (e.g. spend bankroll to skip a curse, gain winnings outright — the backlog's "Inspector" is an example).
+- **Rest** — a no-risk beat (a discount on loading bankroll, removing a curse).
+- **Treasure** — a free Relic or wallet bump, no cost.
+
+There's no mechanically distinct "boss fight" — the stage still ends exactly per `D6`'s dual limiter, wherever that lands along the path; node pacing can aim the climax toward the final node, but nothing new gates the win condition.
+
+**Linear for now, not a branching map** — proves the node concept with a small UI lift before investing in route-choice map rendering. Branching (multiple paths forward, player picks the route, closer to the genre's iconic map) is the **intended future evolution**, not a rejected idea — revisit once the linear version is proven.
+
 ### Failure
 The play phase fails if **bankroll busts** or **the spin cap is reached** before **winnings** reach quota (see locked win condition below). Good failure is legible:
 - A greedy build converts in big rare bursts → may run dry (bankroll clock).
