@@ -106,7 +106,8 @@ def run_play_phase(sim_config, bet_strategy, rng, gamble_strategy=never_gamble,
         grid = machine.spin(rng)
         payout = resolve_spin(grid, sim_config.machine.paylines,
                                sim_config.machine.paytable, bet,
-                               sim_config.machine.min_match)
+                               sim_config.machine.min_match,
+                               sim_config.machine.wild_symbol)
         payouts.append(payout)
 
         winnings_before = pools.winnings

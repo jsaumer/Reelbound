@@ -17,6 +17,10 @@ class MachineConfig:
     paylines: list             # list[tuple[int, ...]], row index per reel
     paytable: dict             # symbol -> {match_length: payout_multiplier}
     min_match: int = 3
+    # Phase 4, D30 tier 1: the wild symbol name, or None if this machine
+    # doesn't have wild access (the Phase 1-3 default). Substitutes for
+    # whatever symbol a payline's run resolves to -- see paytable.py.
+    wild_symbol: str = None
 
     @property
     def num_reels(self) -> int:
