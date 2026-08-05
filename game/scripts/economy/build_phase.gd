@@ -15,9 +15,13 @@ const WILD_RELIC_ID := "wild_unlock"
 const WILD_RELIC_COST := 30.0
 
 # Reel-editor cost per copy = the target symbol's own tier value * this
-# factor. Pricier symbols cost more per copy added -- tunable, not
-# validated against any particular budget yet.
-const REEL_EDIT_COST_FACTOR := 0.5
+# factor. Tuned so the top tier (crown/wild, tier value 400) costs about
+# a third of the Phase-4 starting wallet (100) -- 400 * 1/12 ~= 33.3 --
+# a real commitment, not the wallet-consuming-or-literally-unaffordable
+# result 0.5 produced (star at 100% of wallet, crown at 200%). Phase 4
+# has only one build phase per run right now (no multi-stage carryover
+# yet), so 100 is the only wallet size this actually has to work for.
+const REEL_EDIT_COST_FACTOR := 1.0 / 12.0
 
 # D32: the reel editor is presented as a few pre-rolled offers, not a
 # free reel/symbol/quantity picker -- picking from a small drafted set
