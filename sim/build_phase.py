@@ -31,6 +31,13 @@ REEL_EDIT_COST_FACTOR = 0.5
 REEL_OFFER_COUNT = 3
 REEL_OFFER_QUANTITY = 1
 
+# D33: rerolling costs more each time, within a single build phase (a
+# fresh BuildPhase resets the count) -- a real trade against the wallet,
+# not a free do-over. Linear, not multiplicative: simplest thing that's
+# still a climbing cost; not validated against any particular budget yet.
+REEL_REROLL_BASE_COST = 5.0
+REEL_REROLL_COST_INCREMENT = 5.0
+
 
 @dataclass
 class RelicOffer:
@@ -65,6 +72,16 @@ class ReelOffer:
 
 
 @dataclass
+class ReelPurchaseRecord:
+    """One completed reel-editor purchase, logged by `edit_reel` (so it
+    captures both offer buys and any direct call) -- source data for
+    `reel_ledger`, D33's per-reel purchase summary."""
+    reel_index: int
+    symbol: str
+    quantity: int
+
+
+@dataclass
 class BuildPhase:
     wallet: float
     reel_strips: list
@@ -73,6 +90,8 @@ class BuildPhase:
     owned_symbols: set = field(default_factory=set)
     loaded_bankroll: float = 0.0
     rng: random.Random = field(default_factory=random.Random)
+    reroll_count: int = field(default=0, init=False)
+    reel_purchase_log: list = field(default_factory=list, init=False, repr=False)
     _reel_offers: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self):
@@ -83,23 +102,19 @@ class BuildPhase:
         # start of it -- a symbol bought from the shelf mid-phase (Wild)
         # doesn't retroactively appear in this phase's offers, only the
         # next one's.
-        self._reel_offers = self._generate_reel_offers()
+        self._reel_offers = [self._roll_one_offer() for _ in range(REEL_OFFER_COUNT)]
 
     def shelf(self) -> list:
         return default_shelf(self.owned_symbols)
 
-    def _generate_reel_offers(self) -> list:
+    def _roll_one_offer(self) -> ReelOffer:
         symbols = sorted(self.owned_symbols)
-        num_reels = len(self.reel_strips)
-        offers = []
-        for _ in range(REEL_OFFER_COUNT):
-            symbol = self.rng.choice(symbols)
-            reel_index = self.rng.randrange(num_reels)
-            cost = (symbol_tier_value(symbol, self.paytable)
-                    * REEL_OFFER_QUANTITY * REEL_EDIT_COST_FACTOR)
-            offers.append(ReelOffer(reel_index=reel_index, symbol=symbol,
-                                     quantity=REEL_OFFER_QUANTITY, cost=cost))
-        return offers
+        symbol = self.rng.choice(symbols)
+        reel_index = self.rng.randrange(len(self.reel_strips))
+        cost = (symbol_tier_value(symbol, self.paytable)
+                * REEL_OFFER_QUANTITY * REEL_EDIT_COST_FACTOR)
+        return ReelOffer(reel_index=reel_index, symbol=symbol,
+                          quantity=REEL_OFFER_QUANTITY, cost=cost)
 
     def reel_offers(self) -> list:
         return self._reel_offers
@@ -118,6 +133,37 @@ class BuildPhase:
             offer.bought = True
             return True
         return False
+
+    def reroll_cost(self) -> float:
+        return REEL_REROLL_BASE_COST + self.reroll_count * REEL_REROLL_COST_INCREMENT
+
+    def reroll_reel_offers(self) -> bool:
+        """D33: re-rolls every *unbought* offer at a climbing price --
+        already-bought offers are done deals (their swap already
+        happened) and stay put, both because there's nothing left to
+        reroll about them and because they're the reel_ledger's record of
+        what you actually own now."""
+        cost = self.reroll_cost()
+        if cost > self.wallet + 1e-9:
+            return False
+        self.wallet -= cost
+        self.reroll_count += 1
+        self._reel_offers = [
+            offer if offer.bought else self._roll_one_offer()
+            for offer in self._reel_offers
+        ]
+        return True
+
+    def reel_ledger(self) -> dict:
+        """Per-reel breakdown of every symbol added via the reel editor
+        this build phase, aggregated by symbol -- so purchases aren't
+        forgotten by the time the stage actually starts. Returns
+        {reel_index: {symbol: total_quantity}}."""
+        ledger = {}
+        for record in self.reel_purchase_log:
+            per_reel = ledger.setdefault(record.reel_index, {})
+            per_reel[record.symbol] = per_reel.get(record.symbol, 0) + record.quantity
+        return ledger
 
     def buy_relic(self, relic_id: str) -> bool:
         offer = next((r for r in self.shelf() if r.id == relic_id), None)
@@ -145,6 +191,8 @@ class BuildPhase:
         self.wallet -= cost
         self.reel_strips[reel_index] = apply_reel_edit(
             self.reel_strips[reel_index], target_symbol, quantity, self.paytable)
+        self.reel_purchase_log.append(
+            ReelPurchaseRecord(reel_index=reel_index, symbol=target_symbol, quantity=quantity))
         return True
 
     def spins_from_load(self, amount: float) -> float:

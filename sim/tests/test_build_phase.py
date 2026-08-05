@@ -3,6 +3,7 @@ import unittest
 
 from sim.build_phase import (
     BuildPhase, WILD_SYMBOL, WILD_RELIC_ID, WILD_RELIC_COST, REEL_OFFER_COUNT,
+    REEL_REROLL_BASE_COST, REEL_REROLL_COST_INCREMENT,
 )
 
 PAYTABLE = {
@@ -159,6 +160,97 @@ class TestReelOffers(unittest.TestCase):
         build.buy_reel_offer(0)
         for offer in build.reel_offers()[1:]:
             self.assertFalse(offer.bought)
+
+
+class TestReroll(unittest.TestCase):
+    def test_reroll_cost_starts_at_the_base(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertEqual(build.reroll_cost(), REEL_REROLL_BASE_COST)
+
+    def test_reroll_cost_climbs_each_time(self):
+        build = BuildPhase(wallet=1000.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        first_cost = build.reroll_cost()
+        build.reroll_reel_offers()
+        second_cost = build.reroll_cost()
+        self.assertEqual(second_cost, first_cost + REEL_REROLL_COST_INCREMENT)
+
+    def test_reroll_spends_wallet_and_replaces_offers(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        offers_before = [(o.reel_index, o.symbol) for o in build.reel_offers()]
+        wallet_before = build.wallet
+
+        rerolled = build.reroll_reel_offers()
+
+        self.assertTrue(rerolled)
+        self.assertEqual(build.wallet, wallet_before - REEL_REROLL_BASE_COST)
+        offers_after = [(o.reel_index, o.symbol) for o in build.reel_offers()]
+        self.assertNotEqual(offers_before, offers_after)
+
+    def test_reroll_leaves_bought_offers_untouched(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        build.buy_reel_offer(0)
+        bought_offer = build.reel_offers()[0]
+
+        build.reroll_reel_offers()
+
+        self.assertIs(build.reel_offers()[0], bought_offer)
+        self.assertTrue(build.reel_offers()[0].bought)
+
+    def test_cannot_reroll_without_enough_wallet(self):
+        build = BuildPhase(wallet=1.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertFalse(build.reroll_reel_offers())
+        self.assertEqual(build.wallet, 1.0)
+        self.assertEqual(build.reroll_count, 0)
+
+
+class TestReelLedger(unittest.TestCase):
+    def test_empty_before_any_purchase(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertEqual(build.reel_ledger(), {})
+
+    def test_records_a_purchase_via_offer(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        offer = build.reel_offers()[0]
+        build.buy_reel_offer(0)
+
+        ledger = build.reel_ledger()
+
+        self.assertEqual(ledger[offer.reel_index][offer.symbol], offer.quantity)
+
+    def test_records_a_direct_edit_reel_call(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        build.edit_reel(2, "cherry", 3)
+        self.assertEqual(build.reel_ledger(), {2: {"cherry": 3}})
+
+    def test_aggregates_repeated_purchases_of_the_same_symbol_on_the_same_reel(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        build.edit_reel(1, "cherry", 1)
+        build.edit_reel(1, "cherry", 1)
+        self.assertEqual(build.reel_ledger(), {1: {"cherry": 2}})
+
+    def test_keeps_different_reels_separate(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        build.edit_reel(0, "cherry", 1)
+        build.edit_reel(1, "cherry", 1)
+        ledger = build.reel_ledger()
+        self.assertEqual(ledger[0], {"cherry": 1})
+        self.assertEqual(ledger[1], {"cherry": 1})
+
+    def test_a_failed_edit_is_not_logged(self):
+        build = BuildPhase(wallet=1.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertFalse(build.edit_reel(0, "crown", 5))  # too expensive
+        self.assertEqual(build.reel_ledger(), {})
 
 
 class TestLoadBankrollAndFinalize(unittest.TestCase):
