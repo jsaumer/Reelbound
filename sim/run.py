@@ -68,6 +68,8 @@ QUOTA_CURVES = {
 
 # --- Purchase strategies: (build, economy, rng) -> None, mutating `build` ---
 
+REEL_OFFER_QUANTITY_FOR_EV = 1  # offers are qty-1 today (D32)
+
 def hoard(build: BuildPhase, economy, rng) -> None:
     """Buy nothing; every coin becomes bankroll (the 0-purchase baseline)."""
 
@@ -96,20 +98,35 @@ def buy_n(n: int, max_rerolls: int = 5):
 def ev_driven(max_rerolls: int = 3, buy_wild_relic: bool = True):
     """Buys only offers whose exact-RTP gain repays their cost over the
     stage's expected bet volume (sim/odds.py offer_ev), rerolling to hunt
-    for positive ones. Optionally unlocks Wild first -- post-D35, a
-    reroll can then surface wild offers in the same build phase. If this
-    strategy never finds anything worth buying, that itself is the
+    for positive ones. Considers unlocking Wild first -- post-D35, a
+    reroll can then surface wild offers in the same build phase -- but
+    only if the full wild plan (relic + a best-case reel-0 placement)
+    projects EV-positive; the relic alone adds nothing to the reels. If
+    this strategy never finds anything worth buying, that itself is the
     finding (the shop is a trap at that scope)."""
-    def strategy(build: BuildPhase, economy, rng) -> None:
-        if (buy_wild_relic and WILD_SYMBOL not in build.owned_symbols
-                and build.wallet >= WILD_RELIC_COST * 2):
-            build.buy_relic(WILD_RELIC_ID)
+    from sim.build_phase import WILD_PAYTABLE_ENTRY, REEL_EDIT_COST_FACTOR
+    from sim.reel_editor import symbol_tier_value
 
+    def strategy(build: BuildPhase, economy, rng) -> None:
         paylines = default_machine_config().paylines
         mid_bet = (economy.min_bet + economy.max_bet) / 2.0
+
+        if buy_wild_relic and WILD_SYMBOL not in build.owned_symbols:
+            trial_paytable = dict(build.paytable)
+            trial_paytable.setdefault(WILD_SYMBOL, dict(WILD_PAYTABLE_ENTRY))
+            placement_cost = (symbol_tier_value(WILD_SYMBOL, trial_paytable)
+                               * REEL_OFFER_QUANTITY_FOR_EV * REEL_EDIT_COST_FACTOR)
+            plan_cost = WILD_RELIC_COST + placement_cost
+            if plan_cost <= build.wallet + 1e-9:
+                delta = rtp_delta_for_edit(build.reel_strips, paylines, trial_paytable,
+                                            0, WILD_SYMBOL, 1, wild_symbol=WILD_SYMBOL)
+                volume = min(economy.spin_cap * mid_bet, build.wallet - plan_cost)
+                if offer_ev(delta, volume, plan_cost) > 0:
+                    build.buy_relic(WILD_RELIC_ID)
         rerolls = 0
         while True:
             bought_any = False
+            best_seen_ev = float("-inf")
             for i, offer in enumerate(build.reel_offers()):
                 if offer.bought or offer.cost > build.wallet + 1e-9:
                     continue
@@ -118,11 +135,21 @@ def ev_driven(max_rerolls: int = 3, buy_wild_relic: bool = True):
                                             offer.reel_index, offer.symbol, offer.quantity,
                                             wild_symbol=wild)
                 volume = min(economy.spin_cap * mid_bet, build.wallet - offer.cost)
-                if offer_ev(delta, volume, offer.cost) > 0:
+                ev = offer_ev(delta, volume, offer.cost)
+                best_seen_ev = max(best_seen_ev, ev)
+                if ev > 0:
                     if build.buy_reel_offer(i):
                         bought_any = True
             if bought_any:
                 continue
+            # Rerolling re-samples from the same offer distribution -- if
+            # the best offer seen is deeply negative, paying to re-sample
+            # is throwing money after nothing (a full pass at deeply
+            # negative EV means the distribution's tail can't plausibly
+            # cover the reroll price). Only chase a reroll when something
+            # nearly-positive suggests the tail is within reach.
+            if best_seen_ev < -build.reroll_cost():
+                break
             if rerolls >= max_rerolls:
                 break
             if build.reroll_cost() > build.wallet + 1e-9:
@@ -159,12 +186,23 @@ class RunConfig:
     # makes an 8-stage run economically possible at all. Whatever D22
     # becomes must answer this first.
     clear_bonus: object = None          # (stage_index, quota) -> float
+    # EXPERIMENTAL: per-stage multiplier on min/max bet,
+    # (stage_index, wallet) -> factor. Exists because the first sweep
+    # showed usable capability is hard-capped at spin_cap x mid_bet (~90
+    # wagered) no matter how big the wallet gets -- excess bankroll is
+    # burned at stage end, so wallet growth is meaningless and every
+    # escalating quota curve collapses to 0% full clears. Bet escalation
+    # is the lever that lets capability (and purchase EV, which scales
+    # with bet volume) grow across a run.
+    bet_scale: object = None            # (stage_index, wallet) -> float
 
     def __post_init__(self):
         if self.quota_curve is None:
             self.quota_curve = QUOTA_CURVES["flat65"]
         if self.clear_bonus is None:
             self.clear_bonus = lambda stage_index, quota: 0.0
+        if self.bet_scale is None:
+            self.bet_scale = lambda stage_index, wallet: 1.0
 
 
 @dataclass
@@ -212,24 +250,29 @@ def run_run(run_config: RunConfig, purchase_strategy, bet_strategy, rng,
             paytable = dict(base_machine.paytable)
             owned = set()
 
-        build = BuildPhase(wallet=wallet, reel_strips=strips, paytable=paytable,
-                            min_bet=base_economy.min_bet, owned_symbols=owned, rng=rng)
-        purchase_strategy(build, base_economy, rng)
-        spent_on_machine = wallet - build.wallet
-        build.load_bankroll(build.wallet)
-        final_strips, starting_bankroll, wild_symbol = build.finalize()
-
         quota = run_config.quota_curve(stage_index, wallet)
-        machine = MachineConfig(num_rows=base_machine.num_rows, reel_strips=final_strips,
-                                 paylines=base_machine.paylines, paytable=build.paytable,
-                                 min_match=base_machine.min_match, wild_symbol=wild_symbol)
+        scale = run_config.bet_scale(stage_index, wallet)
         economy = EconomyConfig(
-            starting_bankroll=starting_bankroll, quota=quota,
-            spin_cap=base_economy.spin_cap, min_bet=base_economy.min_bet,
-            max_bet=base_economy.max_bet,
+            starting_bankroll=0.0,  # set after the build phase resolves
+            quota=quota,
+            spin_cap=base_economy.spin_cap,
+            min_bet=base_economy.min_bet * scale,
+            max_bet=base_economy.max_bet * scale,
             gamble_win_probability=base_economy.gamble_win_probability,
             gamble_offer_probability=base_economy.gamble_offer_probability,
             cash_out_discount=base_economy.cash_out_discount)
+
+        build = BuildPhase(wallet=wallet, reel_strips=strips, paytable=paytable,
+                            min_bet=economy.min_bet, owned_symbols=owned, rng=rng)
+        purchase_strategy(build, economy, rng)
+        spent_on_machine = wallet - build.wallet
+        build.load_bankroll(build.wallet)
+        final_strips, starting_bankroll, wild_symbol = build.finalize()
+        economy.starting_bankroll = starting_bankroll
+
+        machine = MachineConfig(num_rows=base_machine.num_rows, reel_strips=final_strips,
+                                 paylines=base_machine.paylines, paytable=build.paytable,
+                                 min_match=base_machine.min_match, wild_symbol=wild_symbol)
         sim_config = SimConfig(machine=machine, economy=economy)
 
         rtp_delta = theoretical_rtp_exact(final_strips, base_machine.paylines,
@@ -265,3 +308,44 @@ def run_many_runs(run_config: RunConfig, purchase_strategy, bet_strategy,
     return [run_run(run_config, purchase_strategy, bet_strategy,
                      random.Random(base_seed + i))
             for i in range(n_runs)]
+
+
+@dataclass
+class RunStats:
+    n_runs: int
+    full_clear_rate: float
+    mean_stages_cleared: float
+    mean_final_wallet_when_won: float
+    per_stage_clear_rate: list   # conditional: of runs reaching stage k, fraction clearing it
+    mean_wallet_by_stage: list   # wallet entering stage k, over runs that reached it
+    mean_spent_by_stage: list    # wallet spent on the machine at stage k
+
+
+def summarize_runs(results: list, num_stages: int) -> RunStats:
+    n = len(results)
+    reached = [0] * num_stages
+    cleared = [0] * num_stages
+    wallet_sums = [0.0] * num_stages
+    spent_sums = [0.0] * num_stages
+    for r in results:
+        for record in r.records:
+            k = record.stage_index
+            reached[k] += 1
+            wallet_sums[k] += record.wallet_before
+            spent_sums[k] += record.spent_on_machine
+            if record.result.outcome == Outcome.WIN:
+                cleared[k] += 1
+    winners = [r for r in results if r.won]
+    return RunStats(
+        n_runs=n,
+        full_clear_rate=len(winners) / n if n else 0.0,
+        mean_stages_cleared=sum(r.stages_cleared for r in results) / n if n else 0.0,
+        mean_final_wallet_when_won=(sum(r.final_wallet for r in winners) / len(winners)
+                                      if winners else 0.0),
+        per_stage_clear_rate=[cleared[k] / reached[k] if reached[k] else 0.0
+                                for k in range(num_stages)],
+        mean_wallet_by_stage=[wallet_sums[k] / reached[k] if reached[k] else 0.0
+                                for k in range(num_stages)],
+        mean_spent_by_stage=[spent_sums[k] / reached[k] if reached[k] else 0.0
+                               for k in range(num_stages)],
+    )

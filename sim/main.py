@@ -64,6 +64,75 @@ def cmd_compare(args):
     rows = compare_strategies(sim_config, strategies, args.runs, base_seed=args.seed)
     print_comparison(rows)
 
+    # K4 (docs/06_OPEN_QUESTIONS.md): the skill gap -- best strategy vs
+    # the naive baseline -- is the standing KPI behind the "two skills"
+    # niche claim. Phase-3 baseline ~5 points; Phase 5's exit needs >=10.
+    naive_label, naive_stats = rows[0]
+    best_label, best_stats = max(rows, key=lambda row: row[1].win_rate)
+    gap = best_stats.win_rate - naive_stats.win_rate
+    print(f"\nK4 skill gap: {gap:+.1%} "
+          f"(best '{best_label}' {best_stats.win_rate:.1%} "
+          f"vs naive {naive_stats.win_rate:.1%}; Phase-5 exit target >= +10pts)")
+
+
+def cmd_runsweep(args):
+    """Phase 4.5: the D22/D36 evidence run -- three experiments over the
+    multi-stage skeleton (sim/run.py). See docs/05_ROADMAP.md Phase 4.5."""
+    from sim.run import (RunConfig, run_many_runs, summarize_runs,
+                          QUOTA_CURVES, PURCHASE_STRATEGIES)
+
+    bet_strategy = BET_STRATEGIES[args.strategy]
+    n = args.runs
+
+    def report(label, config, purchase_strategy):
+        results = run_many_runs(config, purchase_strategy, bet_strategy, n,
+                                 base_seed=args.seed)
+        stats = summarize_runs(results, config.num_stages)
+        stage_rates = " ".join(f"{r:.0%}" for r in stats.per_stage_clear_rate)
+        wallets = " ".join(f"{w:.0f}" for w in stats.mean_wallet_by_stage)
+        print(f"{label:<42} full={stats.full_clear_rate:6.1%} "
+              f"avg_stages={stats.mean_stages_cleared:4.2f}")
+        print(f"{'':<42} stage clear%: {stage_rates}")
+        print(f"{'':<42} wallet@stage: {wallets}")
+        return stats
+
+    print(f"=== Experiment 1: income requirement (flat65 quota, hoard) n={n} ===")
+    for bonus_label, bonus in [("bonus=0", lambda k, q: 0.0),
+                                ("bonus=20", lambda k, q: 20.0),
+                                ("bonus=40", lambda k, q: 40.0),
+                                ("bonus=0.5xquota", lambda k, q: 0.5 * q),
+                                ("bonus=1.0xquota", lambda k, q: 1.0 * q)]:
+        config = RunConfig(quota_curve=QUOTA_CURVES["flat65"], clear_bonus=bonus)
+        report(bonus_label, config, PURCHASE_STRATEGIES["hoard"])
+
+    print(f"\n=== Experiment 2: quota curves at bonus=1.0xquota (hoard) n={n} ===")
+    for curve_name, curve in QUOTA_CURVES.items():
+        config = RunConfig(quota_curve=curve, clear_bonus=lambda k, q: 1.0 * q)
+        report(curve_name, config, PURCHASE_STRATEGIES["hoard"])
+
+    print(f"\n=== Experiment 3: purchases x D36 at flat65 + bonus=1.0xquota n={n} ===")
+    for strat_name, strat in PURCHASE_STRATEGIES.items():
+        for persist in (False, True):
+            config = RunConfig(quota_curve=QUOTA_CURVES["flat65"],
+                                clear_bonus=lambda k, q: 1.0 * q,
+                                machines_persist=persist)
+            label = f"{strat_name} ({'persist' if persist else 'per-stage'})"
+            report(label, config, strat)
+
+    print(f"\n=== Experiment 4: bet escalation (+25%/stage) x quota curves, "
+          f"bonus=1.0xquota n={n} ===")
+    bet_up = lambda k, wallet: 1.0 + 0.25 * k
+    for curve_name in ("flat65", "linear+10", "linear+20", "geo1.10", "geo1.25"):
+        config = RunConfig(quota_curve=QUOTA_CURVES[curve_name],
+                            clear_bonus=lambda k, q: 1.0 * q, bet_scale=bet_up)
+        report(f"{curve_name} + bets x(1+0.25k)", config, PURCHASE_STRATEGIES["hoard"])
+    for strat_name in ("hoard", "ev_driven"):
+        config = RunConfig(quota_curve=QUOTA_CURVES["linear+10"],
+                            clear_bonus=lambda k, q: 1.0 * q, bet_scale=bet_up,
+                            machines_persist=True)
+        report(f"linear+10 + bets up + {strat_name} (persist)", config,
+                PURCHASE_STRATEGIES[strat_name])
+
 
 def cmd_sweep(args):
     strategy = STRATEGIES[args.strategy]
@@ -105,6 +174,13 @@ def main():
     p_compare.add_argument("--runs", type=int, default=5000)
     p_compare.add_argument("--seed", type=int, default=12345)
     p_compare.set_defaults(func=cmd_compare)
+
+    p_runsweep = sub.add_parser("runsweep",
+                                  help="Phase 4.5: multi-stage D22/D36 evidence sweep")
+    p_runsweep.add_argument("--runs", type=int, default=400)
+    p_runsweep.add_argument("--seed", type=int, default=12345)
+    p_runsweep.add_argument("--strategy", choices=BET_STRATEGIES.keys(), default="flat_mid")
+    p_runsweep.set_defaults(func=cmd_runsweep)
 
     p_sweep = sub.add_parser("sweep", help="grid search quota x spin_cap")
     p_sweep.add_argument("--runs", type=int, default=3000)
