@@ -39,7 +39,7 @@ repo root for how it's excluded from git.)
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
 ```
 
-103 GUT tests, ported from `sim/tests/` for economy parity: pools,
+105 GUT tests, ported from `sim/tests/` for economy parity: pools,
 paytable, dual-limiter, near-miss/big-win pure logic, `Odds`, gamble-up,
 D23 cash-out, Wild substitution, the reel editor, `BuildPhase`, and
 `Stage` (including a tension-band regression check).

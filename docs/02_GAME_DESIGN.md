@@ -72,9 +72,9 @@ The reel editor is a small drafted set, not a free picker: each build phase roll
 
 ### Reroll and the reel ledger — LOCKED (D33)
 
-Don't like the 3 offers? **Reroll** them for a price that **climbs each time you use it within the same build phase** (resets on the next one) — a real trade against the wallet, not a free do-over. Rerolling only replaces *unbought* offers; anything already bought is a done deal and stays exactly as purchased. This is the intended path to a symbol you just unlocked from the shelf (Wild): the offers already rolled for this build phase were fixed before you could've bought it, so rerolling is how you go looking for it instead of waiting on the next build phase's luck.
+Don't like the 3 offers? **Reroll** them for a price that **climbs each time you use it within the same build phase** (resets on the next one) — a real trade against the wallet, not a free do-over. Rerolling replaces **every** offer, bought or not (`D35`) — the *purchase itself* already happened (the reel swap, the ledger entry below) and is untouched, only the shopping option in that slot resets, so a slot you already bought from doesn't stay permanently spent for the rest of the build phase. This is the intended path to a symbol you just unlocked from the shelf (Wild): the offers already rolled for this build phase were fixed before you could've bought it, so rerolling is how you go looking for it instead of waiting on the next build phase's luck.
 
-Because purchases can happen fast during a build phase and easily blur together, the play screen's existing paytable/odds panel (`02` §4, the "i" button) also shows a small **reel ledger** — a per-reel list of everything the reel editor added this build phase — so what you bought isn't forgotten by the time you're mid-stage deciding bets.
+Because purchases can happen fast during a build phase and easily blur together, a small **reel ledger** — a per-reel list of everything the reel editor added this build phase — shows directly on the play screen itself (`D35`), not only inside the paytable/odds panel (`02` §4, the "i" button, which also carries a fuller copy of the same breakdown) — so what you bought isn't forgotten by the time you're mid-stage deciding bets.
 
 ### Shelf content tiers — LOCKED (D30)
 
