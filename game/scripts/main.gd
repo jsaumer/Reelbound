@@ -48,6 +48,7 @@ var _winnings_label: Label
 var _pending_label: Label
 var _spins_label: Label
 var _node_label: Label
+var _ledger_label: Label
 var _status_label: Label
 var _bet_spinbox: SpinBox
 var _spin_button: Button
@@ -118,9 +119,28 @@ func _start_stage() -> void:
 
 	_bet_spinbox.value = EconomyConfig.MIN_BET
 	_status_label.text = ""
+	_ledger_label.text = _format_reel_ledger(build_phase.reel_ledger())
 	_set_screen(GameState.PLAY)
 	_refresh_pool_labels()
 	_advance_through_free_nodes()
+
+
+## D33/D35: "Reel 1: +1 bell  --  Reel 4: +1 crown, +2 cherry" style
+## summary, empty string (renders nothing) if the reel editor wasn't
+## touched this build phase.
+func _format_reel_ledger(ledger: Dictionary) -> String:
+	var reel_indices: Array = ledger.keys()
+	reel_indices.sort()
+	var reel_parts := []
+	for reel_index in reel_indices:
+		var per_reel: Dictionary = ledger[reel_index]
+		var symbols: Array = per_reel.keys()
+		symbols.sort()
+		var symbol_parts := []
+		for symbol in symbols:
+			symbol_parts.append("+%d %s" % [per_reel[symbol], symbol])
+		reel_parts.append("Reel %d: %s" % [reel_index + 1, ", ".join(symbol_parts)])
+	return "  --  ".join(reel_parts)
 
 
 func _set_screen(state: int) -> void:
@@ -384,6 +404,18 @@ func _build_play_screen() -> void:
 	_node_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_node_label.add_theme_font_size_override("font_size", 18)
 	_play_root.add_child(_node_label)
+
+	# D33/D35: a small always-visible summary of what the reel editor
+	## added this build phase -- no click required, unlike the fuller
+	## breakdown still available via the "i" paytable/odds panel. Fixed
+	## for the whole stage (set once in _start_stage()); the build phase
+	## that produced it is already over by the time play starts.
+	_ledger_label = Label.new()
+	_ledger_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ledger_label.add_theme_font_size_override("font_size", 13)
+	_ledger_label.modulate = Color(1, 1, 1, 0.7)
+	_ledger_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_play_root.add_child(_ledger_label)
 
 	_reel_row = HBoxContainer.new()
 	_reel_row.alignment = BoxContainer.ALIGNMENT_CENTER

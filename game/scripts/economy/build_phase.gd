@@ -167,11 +167,12 @@ func reroll_cost() -> float:
 	return REEL_REROLL_BASE_COST + reroll_count * REEL_REROLL_COST_INCREMENT
 
 
-## D33: re-rolls every *unbought* offer at a climbing price --
-## already-bought offers are done deals (their swap already happened)
-## and stay put, both because there's nothing left to reroll about them
-## and because they're the reel_ledger's record of what you actually own
-## now.
+## D33/D35: re-rolls every offer at a climbing price, bought or not. A
+## previous purchase's actual effect (the reel swap, the reel_ledger
+## entry) already happened and is untouched by this -- rerolling only
+## replaces the *offer* (what's available to buy next), so a slot you
+## already bought from becomes buyable again instead of staying
+## permanently spent for the rest of the build phase.
 func reroll_reel_offers() -> bool:
 	var cost := reroll_cost()
 	if cost > wallet + 1e-9:
@@ -179,9 +180,7 @@ func reroll_reel_offers() -> bool:
 	wallet -= cost
 	reroll_count += 1
 	for i in range(_reel_offers.size()):
-		var offer: ReelOffer = _reel_offers[i]
-		if not offer.bought:
-			_reel_offers[i] = _roll_one_offer()
+		_reel_offers[i] = _roll_one_offer()
 	return true
 
 

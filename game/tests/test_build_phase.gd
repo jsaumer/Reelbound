@@ -243,15 +243,34 @@ func test_reroll_spends_wallet_and_replaces_offers():
 	assert_ne(offers_before, offers_after)
 
 
-func test_reroll_leaves_bought_offers_untouched():
+func test_reroll_also_resets_a_bought_offers_slot():
 	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
 	build.buy_reel_offer(0)
-	var bought_offer = build.reel_offers()[0]
+	assert_true(build.reel_offers()[0].bought)
 
 	build.reroll_reel_offers()
 
-	assert_same(build.reel_offers()[0], bought_offer)
-	assert_true(build.reel_offers()[0].bought)
+	assert_false(build.reel_offers()[0].bought)
+
+
+func test_reroll_does_not_undo_a_previous_purchase():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	var offer = build.reel_offers()[0]
+	build.buy_reel_offer(0)
+	var strip_after_purchase: Array = build.reel_strips[offer.reel_index].duplicate()
+	var ledger_after_purchase := build.reel_ledger()
+
+	build.reroll_reel_offers()
+
+	assert_eq(build.reel_strips[offer.reel_index], strip_after_purchase)
+	assert_eq(build.reel_ledger(), ledger_after_purchase)
+
+
+func test_can_buy_the_same_slot_again_after_a_reroll():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	build.buy_reel_offer(0)
+	build.reroll_reel_offers()
+	assert_true(build.buy_reel_offer(0))
 
 
 func test_cannot_reroll_without_enough_wallet():
