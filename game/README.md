@@ -1,9 +1,13 @@
-# game/ — Phase 2/3 prototype
+# game/ — Phase 2/3/4 prototype
 
 Godot 4.7 project. One Payline machine, spin → ease-to-stop → payout, three
 pools shown live, placeholder art with real juice (Phase 2) — plus the
 Phase 3 play-phase decisions: bet sizing, bank-vs-gamble-up, and the D23
-post-quota cash-out choice. See `docs/05_ROADMAP.md`.
+post-quota cash-out choice — and the Phase 4 loop: a build phase (wallet →
+reel editor + Wild shelf + load bankroll, D28-D30) into a stage path
+(minor/elite/treasure nodes over one continuous economy, D31) into a
+result screen that cycles winnings into the next build phase (D21). See
+`docs/05_ROADMAP.md`.
 
 ## Design intent — read this before touching `reel_view.gd`
 
@@ -35,9 +39,17 @@ repo root for how it's excluded from git.)
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
 ```
 
-39 GUT tests, ported from `sim/tests/` for economy parity: pools,
+82 GUT tests, ported from `sim/tests/` for economy parity: pools,
 paytable, dual-limiter, near-miss/big-win pure logic, `Odds`, gamble-up,
-and D23 cash-out.
+D23 cash-out, Wild substitution, the reel editor, `BuildPhase`, and
+`Stage` (including a tension-band regression check).
+
+New `class_name` scripts need one editor pass before a headless run can
+see them (Godot's global class cache doesn't update from a plain
+`--headless` load):
+```
+tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --editor --path game --quit-after 20
+```
 
 ## Layout
 
@@ -71,8 +83,23 @@ and D23 cash-out.
     exploitable (see `sim/README.md`).
   - `near_miss.gd` — finds the richest developing line in an already-
     resolved grid; `main.gd` uses it to hold/pulse the deciding reel.
-  - `main.gd` — pool labels, reel row, bet control, spin button, the
-    bank/gamble row, the keep-playing/cash-out row, the "i" button.
+  - `reel_editor.gd` — D29's fixed-slot density-tuning swap (cheapest-tier
+    symbol present → a symbol you own, strip length conserved).
+  - `build_phase.gd` — the build phase: wallet, the Wild-only Relic shelf
+    (D28/D30), the reel editor, load-bankroll/finalize (D5's no-waste
+    failsafe).
+  - `stage.gd` — the D31 node path (minor/elite/event/rest/treasure) over
+    one continuous economy. Unlike `sim/stage.py`'s batch loop, this
+    composes a `PlayPhase` and drives it one node at a time — the same
+    UI-driven adaptation `play_phase.gd` already made from its own sim
+    counterpart — reusing `PlayPhase`'s internal dual-limiter/gamble/
+    cash-out logic instead of duplicating it.
+  - `main.gd` — a `GameState` (BUILD/PLAY/RESULT) flow: the build screen
+    (wallet, reel editor, shelf, load-bankroll), the play screen (pool
+    labels, reel row, bet control, spin button, bank/gamble row,
+    keep-playing/cash-out row, node badge, the "i" button), and the
+    result screen (outcome, "Continue" cycles winnings into the next
+    build phase per D21).
 - `scripts/ui/reel_view.gd` — one reel column: flicker → staggered stop →
   elastic settle bounce. **The feel-critical file** — see Design intent
   above.
@@ -92,7 +119,11 @@ and D23 cash-out.
 
 ## What's out of scope here
 
-No bonuses (K1), no build phase, no real art, no multi-stage runs, no
-other slot types (Payline only). Stored-bonus timing (part of the
-original Phase 3 checklist) doesn't apply yet either — bonuses don't
-exist until Phase 5.7.
+No bonuses (K1), no boons/curses, no real art, no other slot types
+(Payline only). A run is exactly one stage — reel edits/purchases don't
+carry forward across stages, and there's no run-level meta-progression
+(that's Phase 6). Stored-bonus timing (part of the original Phase 3
+checklist) doesn't apply yet either — bonuses don't exist until Phase 5.7.
+Event/Rest nodes exist in `stage.gd` but aren't populated by
+`default_node_sequence()` — they need Phase 5 boon/curse content to mean
+anything.

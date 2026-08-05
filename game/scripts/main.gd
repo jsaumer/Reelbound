@@ -1,26 +1,56 @@
-## Phase 2/3 prototype (docs/05_ROADMAP.md): one Payline machine, spin ->
+## Phase 2/3/4 prototype (docs/05_ROADMAP.md): one Payline machine, spin ->
 ## ease-to-stop -> payout, three pools shown and updating, juice on
-## placeholder art, plus the Phase 3 play-phase decisions -- bet sizing,
-## bank-vs-gamble-up, and the D23 post-quota cash-out choice. Built
-## entirely in code (no hand-authored scene tree) so the whole UI is one
-## readable, greppable file.
+## placeholder art, the Phase 3 play-phase decisions (bet sizing,
+## bank-vs-gamble-up, D23 post-quota cash-out), and the Phase 4 loop --
+## build phase (wallet -> reel editor + shelf + load bankroll) -> stage
+## path (D31: minor/elite/treasure nodes over Stage) -> result -> back to
+## build (D21: winnings become the next wallet). Built entirely in code
+## (no hand-authored scene tree) so the whole UI is one readable,
+## greppable file.
 extends Control
 
 const REEL_STAGGER := 0.15
 const BASE_FLICKER := 0.5
 const ANTICIPATION_HOLD := 0.7  # extra hold on the reel that decides a developing line
 
+# Phase 4 scope note: there's no meta-progression yet (that's Phase 6), so
+# a run is exactly one stage. A WIN cycles winnings into the next wallet
+# (D21); a BUST/OUT_OF_SPINS has nothing to carry forward, so "Continue"
+# after a loss starts over at this same seed wallet, not zero.
+const STARTING_WALLET := EconomyConfig.STARTING_BANKROLL
+
+enum GameState { BUILD, PLAY, RESULT }
+
 signal _choice_made(result: bool)
 
-var play_phase: PlayPhase
+var _state: int = GameState.BUILD
+var build_phase: BuildPhase
+var stage: Stage
+var play_phase: PlayPhase  # alias for stage.play_phase -- the Phase 2/3 UI below reads this directly
 var pools: Pools
 
+var _build_root: Control
+var _wallet_label: Label
+var _reel_option: OptionButton
+var _symbol_option: OptionButton
+var _quantity_spinbox: SpinBox
+var _edit_cost_label: Label
+var _edit_button: Button
+var _shelf_box: VBoxContainer
+var _load_spinbox: SpinBox
+var _load_preview_label: Label
+var _load_button: Button
+var _build_status_label: Label
+var _start_stage_button: Button
+
+var _play_root: Control
 var _reel_row: HBoxContainer
 var _reel_views: Array = []  # Array[ReelView]
 var _bankroll_label: Label
 var _winnings_label: Label
 var _pending_label: Label
 var _spins_label: Label
+var _node_label: Label
 var _status_label: Label
 var _bet_spinbox: SpinBox
 var _spin_button: Button
@@ -40,26 +70,71 @@ var _continuation_label: Label
 var _cash_out_button: Button
 var _keep_playing_button: Button
 
+var _result_root: Control
+var _result_title_label: Label
+var _result_summary_label: Label
+var _continue_button: Button
+
 
 func _ready() -> void:
-	_build_play_phase()
 	_build_ui()
-	_refresh_pool_labels()
+	_start_build_phase(STARTING_WALLET)
 
 
-func _build_play_phase() -> void:
+## D21: `wallet` is the currency-spine amount available to spend this
+## build phase -- the prior stage's winnings, or STARTING_WALLET on a
+## fresh run. Reel strips/paytable reset each stage (Phase 4 is scoped to
+## one stage at a time; carrying purchased density forward across stages
+## is Phase 6 meta-progression, not built yet).
+func _start_build_phase(wallet: float) -> void:
+	build_phase = BuildPhase.new(wallet, EconomyConfig.build_default_reel_strips(),
+			EconomyConfig.DEFAULT_PAYTABLE.duplicate(true), EconomyConfig.MIN_BET)
+	_refresh_build_screen()
+	_set_screen(GameState.BUILD)
+
+
+func _start_stage() -> void:
+	var finalized: Dictionary = build_phase.finalize()
+	var machine := ReelMachine.new(finalized.reel_strips, EconomyConfig.NUM_ROWS)
+	pools = Pools.new(finalized.starting_bankroll)
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var machine := ReelMachine.new(
-			EconomyConfig.build_default_reel_strips(), EconomyConfig.NUM_ROWS)
-	pools = Pools.new(EconomyConfig.STARTING_BANKROLL)
 	play_phase = PlayPhase.new(
-			machine, pools, EconomyConfig.DEFAULT_PAYTABLE,
-			EconomyConfig.DEFAULT_PAYLINES, EconomyConfig.MIN_MATCH,
-			EconomyConfig.QUOTA, EconomyConfig.SPIN_CAP, rng,
+			machine, pools, build_phase.paytable, EconomyConfig.DEFAULT_PAYLINES,
+			EconomyConfig.MIN_MATCH, EconomyConfig.QUOTA, EconomyConfig.SPIN_CAP, rng,
 			EconomyConfig.GAMBLE_WIN_PROBABILITY, EconomyConfig.CASH_OUT_DISCOUNT,
-			EconomyConfig.GAMBLE_OFFER_PROBABILITY)
+			EconomyConfig.GAMBLE_OFFER_PROBABILITY, finalized.wild_symbol,
+			EconomyConfig.MIN_BET, EconomyConfig.MAX_BET)
+	stage = Stage.new(play_phase, Stage.default_node_sequence())
 
+	_reel_views.clear()
+	for child in _reel_row.get_children():
+		child.queue_free()
+	for strip in finalized.reel_strips:
+		var reel_view := ReelView.new()
+		reel_view.alignment = BoxContainer.ALIGNMENT_CENTER
+		reel_view.setup(EconomyConfig.NUM_ROWS, strip)
+		_reel_views.append(reel_view)
+		_reel_row.add_child(reel_view)
+
+	_bet_spinbox.value = EconomyConfig.MIN_BET
+	_status_label.text = ""
+	_set_screen(GameState.PLAY)
+	_refresh_pool_labels()
+	_advance_through_free_nodes()
+
+
+func _set_screen(state: int) -> void:
+	_state = state
+	_build_root.visible = state == GameState.BUILD
+	_play_root.visible = state == GameState.PLAY
+	_info_button.visible = state == GameState.PLAY
+	_result_root.visible = state == GameState.RESULT
+
+
+# ---------------------------------------------------------------------
+# UI construction
+# ---------------------------------------------------------------------
 
 func _build_ui() -> void:
 	anchor_right = 1.0
@@ -71,23 +146,11 @@ func _build_ui() -> void:
 	bg.anchor_bottom = 1.0
 	add_child(bg)
 
-	var root := VBoxContainer.new()
-	root.anchor_right = 1.0
-	root.anchor_bottom = 1.0
-	root.add_theme_constant_override("separation", 24)
-	root.set("theme_override_constants/separation", 24)
-	add_child(root)
-	_add_margin(root, 32)
+	_build_build_screen()
+	_build_play_screen()
+	_build_result_screen()
 
-	var pools_row := HBoxContainer.new()
-	pools_row.add_theme_constant_override("separation", 40)
-	pools_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	root.add_child(pools_row)
-	_bankroll_label = _make_pool_label(pools_row)
-	_winnings_label = _make_pool_label(pools_row)
-	_pending_label = _make_pool_label(pools_row)
-	_spins_label = _make_pool_label(pools_row)
-
+	# Added last so they render on top of whichever screen is visible.
 	_win_flash = ColorRect.new()
 	_win_flash.color = Color(1.0, 0.85, 0.3, 0.0)
 	_win_flash.anchor_right = 1.0
@@ -95,8 +158,6 @@ func _build_ui() -> void:
 	_win_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_win_flash)
 
-	# Separate from _win_flash (which is always amber) so gamble win/loss
-	# can tint green/red without disturbing the regular win flash's color.
 	_gamble_flash = ColorRect.new()
 	_gamble_flash.color = Color(0, 0, 0, 0.0)
 	_gamble_flash.anchor_right = 1.0
@@ -104,25 +165,257 @@ func _build_ui() -> void:
 	_gamble_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_gamble_flash)
 
+	_info_button = Button.new()
+	_info_button.text = "i"
+	_info_button.tooltip_text = "Paytable & odds"
+	_info_button.custom_minimum_size = Vector2(36, 36)
+	_info_button.anchor_left = 1.0
+	_info_button.anchor_right = 1.0
+	_info_button.offset_left = -52.0
+	_info_button.offset_right = -16.0
+	_info_button.offset_top = 16.0
+	_info_button.offset_bottom = 52.0
+	_info_button.pressed.connect(_on_info_pressed)
+	add_child(_info_button)
+
+	_paytable_panel = PaytablePanel.new()
+	add_child(_paytable_panel)
+
+	_big_win_banner = BigWinBanner.new()
+	add_child(_big_win_banner)
+
+
+func _make_pool_label(parent: Control) -> Label:
+	var label := Label.new()
+	label.add_theme_font_size_override("font_size", 22)
+	parent.add_child(label)
+	return label
+
+
+func _add_margin(root: Control, amount: int) -> void:
+	root.add_theme_constant_override("margin_left", amount)
+
+
+# --- Build-phase screen (Phase 4: wallet -> reel editor + shelf + load bankroll) ---
+
+func _build_build_screen() -> void:
+	_build_root = VBoxContainer.new()
+	_build_root.anchor_right = 1.0
+	_build_root.anchor_bottom = 1.0
+	_build_root.add_theme_constant_override("separation", 18)
+	add_child(_build_root)
+	_add_margin(_build_root, 32)
+
+	var title := Label.new()
+	title.text = "BUILD PHASE"
+	title.add_theme_font_size_override("font_size", 26)
+	_build_root.add_child(title)
+
+	_wallet_label = Label.new()
+	_wallet_label.add_theme_font_size_override("font_size", 20)
+	_build_root.add_child(_wallet_label)
+
+	var editor_title := Label.new()
+	editor_title.text = "Reel editor (D29) -- convert a reel's cheapest filler into a symbol you own"
+	_build_root.add_child(editor_title)
+
+	var editor_row := HBoxContainer.new()
+	editor_row.add_theme_constant_override("separation", 12)
+	_build_root.add_child(editor_row)
+
+	var reel_label := Label.new()
+	reel_label.text = "Reel:"
+	editor_row.add_child(reel_label)
+	_reel_option = OptionButton.new()
+	editor_row.add_child(_reel_option)
+
+	var symbol_label := Label.new()
+	symbol_label.text = "Symbol:"
+	editor_row.add_child(symbol_label)
+	_symbol_option = OptionButton.new()
+	_symbol_option.item_selected.connect(_on_edit_controls_changed)
+	editor_row.add_child(_symbol_option)
+
+	var qty_label := Label.new()
+	qty_label.text = "Qty:"
+	editor_row.add_child(qty_label)
+	_quantity_spinbox = SpinBox.new()
+	_quantity_spinbox.min_value = 1
+	_quantity_spinbox.max_value = 20
+	_quantity_spinbox.value = 1
+	_quantity_spinbox.value_changed.connect(_on_edit_controls_changed)
+	editor_row.add_child(_quantity_spinbox)
+
+	_edit_cost_label = Label.new()
+	editor_row.add_child(_edit_cost_label)
+
+	_edit_button = Button.new()
+	_edit_button.text = "Edit Reel"
+	_edit_button.pressed.connect(_on_edit_reel_pressed)
+	editor_row.add_child(_edit_button)
+
+	var shelf_title := Label.new()
+	shelf_title.text = "Shelf (Relics, D28/D30)"
+	_build_root.add_child(shelf_title)
+
+	_shelf_box = VBoxContainer.new()
+	_shelf_box.add_theme_constant_override("separation", 6)
+	_build_root.add_child(_shelf_box)
+
+	var load_title := Label.new()
+	load_title.text = "Load bankroll (D5 -- bankroll is time)"
+	_build_root.add_child(load_title)
+
+	var load_row := HBoxContainer.new()
+	load_row.add_theme_constant_override("separation", 12)
+	_build_root.add_child(load_row)
+
+	_load_spinbox = SpinBox.new()
+	_load_spinbox.min_value = 0
+	_load_spinbox.max_value = 1000
+	_load_spinbox.step = 1
+	_load_spinbox.value_changed.connect(_on_load_controls_changed)
+	load_row.add_child(_load_spinbox)
+
+	_load_preview_label = Label.new()
+	load_row.add_child(_load_preview_label)
+
+	_load_button = Button.new()
+	_load_button.text = "Load"
+	_load_button.pressed.connect(_on_load_bankroll_pressed)
+	load_row.add_child(_load_button)
+
+	_build_status_label = Label.new()
+	_build_root.add_child(_build_status_label)
+
+	_start_stage_button = Button.new()
+	_start_stage_button.text = "START STAGE"
+	_start_stage_button.custom_minimum_size = Vector2(160, 44)
+	_start_stage_button.pressed.connect(_on_start_stage_pressed)
+	_build_root.add_child(_start_stage_button)
+
+	var scope_note := Label.new()
+	scope_note.text = ("Leftover wallet auto-converts to bankroll when the stage starts (D5) -- "
+			+ "no need to load it all manually.")
+	scope_note.modulate = Color(1, 1, 1, 0.6)
+	_build_root.add_child(scope_note)
+
+
+func _refresh_build_screen() -> void:
+	_wallet_label.text = "Wallet: %.1f" % build_phase.wallet
+
+	_reel_option.clear()
+	for i in range(build_phase.reel_strips.size()):
+		_reel_option.add_item("Reel %d" % (i + 1), i)
+
+	var owned: Array = build_phase.owned_symbols.duplicate()
+	owned.sort()
+	_symbol_option.clear()
+	for symbol in owned:
+		_symbol_option.add_item(symbol)
+
+	for child in _shelf_box.get_children():
+		child.queue_free()
+	for offer in build_phase.shelf():
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var label := Label.new()
+		label.text = "%s -- %.1f" % [offer.effect, offer.cost]
+		row.add_child(label)
+		var buy_button := Button.new()
+		buy_button.text = "Buy"
+		buy_button.pressed.connect(_on_buy_relic_pressed.bind(offer.id))
+		row.add_child(buy_button)
+		_shelf_box.add_child(row)
+
+	_load_spinbox.max_value = max(0.0, build_phase.wallet)
+	_on_load_controls_changed()
+	_on_edit_controls_changed()
+
+
+func _on_edit_controls_changed(_unused = null) -> void:
+	if _symbol_option.item_count == 0:
+		_edit_cost_label.text = ""
+		return
+	var symbol := _symbol_option.get_item_text(_symbol_option.selected)
+	var quantity := int(_quantity_spinbox.value)
+	var cost := build_phase.reel_edit_cost(symbol, quantity)
+	_edit_cost_label.text = "Cost: %.1f" % cost
+
+
+func _on_load_controls_changed(_unused = null) -> void:
+	var spins := build_phase.spins_from_load(_load_spinbox.value)
+	_load_preview_label.text = "-> %.0f spins" % spins
+
+
+func _on_edit_reel_pressed() -> void:
+	if _symbol_option.item_count == 0 or _reel_option.item_count == 0:
+		return
+	var reel_index := _reel_option.selected
+	var symbol := _symbol_option.get_item_text(_symbol_option.selected)
+	var quantity := int(_quantity_spinbox.value)
+	if build_phase.edit_reel(reel_index, symbol, quantity):
+		_build_status_label.text = "Edited reel %d: +%d %s." % [reel_index + 1, quantity, symbol]
+	else:
+		_build_status_label.text = "Can't afford that edit."
+	_refresh_build_screen()
+
+
+func _on_buy_relic_pressed(relic_id: String) -> void:
+	if build_phase.buy_relic(relic_id):
+		_build_status_label.text = "Bought %s." % relic_id
+	else:
+		_build_status_label.text = "Can't afford that Relic."
+	_refresh_build_screen()
+
+
+func _on_load_bankroll_pressed() -> void:
+	if build_phase.load_bankroll(_load_spinbox.value):
+		_build_status_label.text = "Loaded %.1f into bankroll." % _load_spinbox.value
+	else:
+		_build_status_label.text = "Can't load more than the wallet holds."
+	_refresh_build_screen()
+
+
+func _on_start_stage_pressed() -> void:
+	_start_stage()
+
+
+# --- Play screen (Phase 2/3, extended with the Stage node badge) ---
+
+func _build_play_screen() -> void:
+	_play_root = VBoxContainer.new()
+	_play_root.anchor_right = 1.0
+	_play_root.anchor_bottom = 1.0
+	_play_root.add_theme_constant_override("separation", 24)
+	add_child(_play_root)
+	_add_margin(_play_root, 32)
+
+	var pools_row := HBoxContainer.new()
+	pools_row.add_theme_constant_override("separation", 40)
+	pools_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_play_root.add_child(pools_row)
+	_bankroll_label = _make_pool_label(pools_row)
+	_winnings_label = _make_pool_label(pools_row)
+	_pending_label = _make_pool_label(pools_row)
+	_spins_label = _make_pool_label(pools_row)
+
+	_node_label = Label.new()
+	_node_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_node_label.add_theme_font_size_override("font_size", 18)
+	_play_root.add_child(_node_label)
+
 	_reel_row = HBoxContainer.new()
 	_reel_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_reel_row.add_theme_constant_override("separation", 10)
 	_reel_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_reel_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(_reel_row)
-
-	var reel_strips: Array = EconomyConfig.build_default_reel_strips()
-	for strip in reel_strips:
-		var reel_view := ReelView.new()
-		reel_view.alignment = BoxContainer.ALIGNMENT_CENTER
-		reel_view.setup(EconomyConfig.NUM_ROWS, strip)
-		_reel_views.append(reel_view)
-		_reel_row.add_child(reel_view)
+	_play_root.add_child(_reel_row)
 
 	var controls_row := HBoxContainer.new()
 	controls_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	controls_row.add_theme_constant_override("separation", 16)
-	root.add_child(controls_row)
+	_play_root.add_child(controls_row)
 
 	var bet_label := Label.new()
 	bet_label.text = "Bet:"
@@ -141,13 +434,11 @@ func _build_ui() -> void:
 	_spin_button.pressed.connect(_on_spin_pressed)
 	controls_row.add_child(_spin_button)
 
-	# Bank-vs-gamble-up row (Phase 3, docs/02_GAME_DESIGN.md #4). Hidden
-	# until a win lands in pending.
 	_gamble_row = HBoxContainer.new()
 	_gamble_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_gamble_row.add_theme_constant_override("separation", 16)
 	_gamble_row.visible = false
-	root.add_child(_gamble_row)
+	_play_root.add_child(_gamble_row)
 
 	_gamble_info_label = Label.new()
 	_gamble_row.add_child(_gamble_info_label)
@@ -160,13 +451,11 @@ func _build_ui() -> void:
 	_gamble_button.text = "GAMBLE (50/50)"
 	_gamble_row.add_child(_gamble_button)
 
-	# Post-quota keep-playing-vs-cash-out row (D23). Hidden until quota
-	# first clears.
 	_continuation_row = HBoxContainer.new()
 	_continuation_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_continuation_row.add_theme_constant_override("separation", 16)
 	_continuation_row.visible = false
-	root.add_child(_continuation_row)
+	_play_root.add_child(_continuation_row)
 
 	_continuation_label = Label.new()
 	_continuation_row.add_child(_continuation_label)
@@ -182,43 +471,7 @@ func _build_ui() -> void:
 	_status_label = Label.new()
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.add_theme_font_size_override("font_size", 20)
-	root.add_child(_status_label)
-
-	# Info button + paytable/odds overlay. Every slot-gameplay screen should
-	# carry one of these -- it's always computed live from play_phase's
-	# actual machine, never a fixed list, so it stays correct as symbols get
-	# purchased/added (build phase, Phase 4).
-	_info_button = Button.new()
-	_info_button.text = "i"
-	_info_button.tooltip_text = "Paytable & odds"
-	_info_button.custom_minimum_size = Vector2(36, 36)
-	_info_button.anchor_left = 1.0
-	_info_button.anchor_right = 1.0
-	_info_button.offset_left = -52.0
-	_info_button.offset_right = -16.0
-	_info_button.offset_top = 16.0
-	_info_button.offset_bottom = 52.0
-	_info_button.pressed.connect(_on_info_pressed)
-	add_child(_info_button)
-
-	_paytable_panel = PaytablePanel.new()
-	add_child(_paytable_panel)
-
-	# Added last so it renders on top of the reels -- the whole point of a
-	# celebratory banner is that it sits over everything else.
-	_big_win_banner = BigWinBanner.new()
-	add_child(_big_win_banner)
-
-
-func _make_pool_label(parent: Control) -> Label:
-	var label := Label.new()
-	label.add_theme_font_size_override("font_size", 22)
-	parent.add_child(label)
-	return label
-
-
-func _add_margin(root: Control, amount: int) -> void:
-	root.add_theme_constant_override("margin_left", amount)
+	_play_root.add_child(_status_label)
 
 
 func _on_info_pressed() -> void:
@@ -234,14 +487,44 @@ func _refresh_pool_labels() -> void:
 
 
 func _update_spins_label() -> void:
-	# The spin cap is the other half of the dual limiter (D6) alongside
-	# bankroll -- it needs to be just as visible, or "out of spins" comes
-	# as a surprise with no warning.
 	_spins_label.text = "Spins: %d / %d" % [play_phase.spins_used, EconomyConfig.SPIN_CAP]
 
 
+## D31: node badge, shown before every spin -- ELITE calls out its bet
+## bump so the extra stake is never a surprise (K3: decisions stay legible).
+func _update_node_label() -> void:
+	match stage.current_node_type():
+		Stage.NodeType.ELITE:
+			_node_label.text = "ELITE -- bet x%.2f" % Stage.ELITE_BET_MULTIPLIER
+		_:
+			_node_label.text = "Minor spin"
+
+
+## Auto-resolves any run of free nodes (TREASURE today; EVENT/REST once
+## Phase 5 populates them) the stage is currently sitting on -- there's no
+## decision attached, so a click to "open" a treasure node would just be
+## friction. Stops as soon as a MINOR/ELITE node (a real bet decision) is
+## reached, or the stage ends.
+func _advance_through_free_nodes() -> void:
+	while not stage.is_over() and stage.is_free_node():
+		var node := stage.current_node_type()
+		stage.resolve_free_node()
+		_refresh_pool_labels()
+		if node == Stage.NodeType.TREASURE:
+			_status_label.text = "Treasure! +%.1f winnings" % Stage.TREASURE_WINNINGS_BONUS
+			await get_tree().create_timer(0.6).timeout
+			_status_label.text = ""
+
+	if stage.is_over():
+		await _finish_stage()
+	else:
+		_update_node_label()
+		_spin_button.disabled = false
+		_bet_spinbox.editable = true
+
+
 func _on_spin_pressed() -> void:
-	if play_phase.is_over() or play_phase.has_pending_decision():
+	if stage.is_over() or stage.has_pending_decision() or stage.is_free_node():
 		return
 	_spin_button.disabled = true
 	_bet_spinbox.editable = false
@@ -251,17 +534,13 @@ func _on_spin_pressed() -> void:
 	var winnings_before: float = pools.winnings
 
 	# The model resolves the spin instantly (deterministic, seedable, same
-	# as sim/play_phase.py); the animation below just paces the reveal.
-	var payout: float = play_phase.spin(bet)
+	# as sim/); the animation below just paces the reveal.
+	var payout: float = stage.spin(bet)
 	var final_grid: Array = play_phase.last_grid
 
 	_bankroll_label.text = "Bankroll: %.1f" % pools.bankroll
 	_update_spins_label()
 
-	# Near-miss anticipation: if some line is already 2+ into a match that
-	# would pay/upgrade, hold the deciding reel longer and pulse the cells
-	# that already fed into it -- the "will it keep going?" beat. The
-	# outcome is already resolved above; this only paces how it's revealed.
 	var anticipation := NearMiss.find_anticipation(
 			final_grid, play_phase.paylines, play_phase.paytable)
 
@@ -304,11 +583,13 @@ func _on_spin_pressed() -> void:
 	await winnings_tween.finished
 
 	_refresh_pool_labels()
-	_handle_outcome()
+
+	if stage.is_over():
+		await _finish_stage()
+	else:
+		await _advance_through_free_nodes()
 
 
-## Fire-and-forget: waits `start_delay` before pulsing, so the cell only
-## glows once it's actually shown its settled symbol (not mid-flicker).
 func _schedule_pulse(reel_index: int, row: int, start_delay: float, pulse_duration: float) -> void:
 	await get_tree().create_timer(start_delay).timeout
 	_reel_views[reel_index].pulse_cell(row, pulse_duration)
@@ -328,10 +609,6 @@ func _play_win_reveal(payout: float, bet: float) -> void:
 	if tier != "":
 		await _big_win_banner.play(tier)
 
-	# Bank-vs-gamble-up (Phase 3). D25: a single flip, not a ladder -- once
-	# offered, the player either banks or takes exactly one gamble; a win
-	# auto-banks rather than offering to press again (chaining further is
-	# a future unlockable, not baseline -- see economy_config.gd).
 	if play_phase.awaiting_gamble_decision:
 		_pending_label.text = "Pending: %.1f" % pools.pending
 		_gamble_info_label.text = ("Bank %.1f, or gamble once for double-or-nothing?"
@@ -339,18 +616,14 @@ func _play_win_reveal(payout: float, bet: float) -> void:
 		var wants_to_gamble := await _await_choice(_gamble_row, _gamble_button, _bank_button)
 		if wants_to_gamble:
 			var pending_before: float = pools.pending
-			var won: bool = play_phase.gamble_pending()
+			var won: bool = stage.gamble_pending()
 			await _play_gamble_result(won, pending_before)
 		else:
-			play_phase.bank_pending()
+			stage.bank_pending()
 
 	_pending_label.text = "Pending: 0.0"
 
 
-## Explicit won/lost feedback for the single gamble-up flip -- color flash
-## + a status line, so the outcome reads clearly instead of just a silent
-## number change. Pending is always 0 by the time this runs (a win banks
-## immediately, a loss forfeits) -- see gamble_pending() in play_phase.gd.
 func _play_gamble_result(won: bool, pending_before: float) -> void:
 	_pending_label.text = "Pending: 0.0"
 
@@ -374,20 +647,17 @@ func _play_gamble_result(won: bool, pending_before: float) -> void:
 	_status_label.remove_theme_color_override("font_color")
 
 
-## D23: offered every spin once quota is cleared. Awaitable.
 func _play_continuation_choice() -> void:
 	_continuation_label.text = ("Quota cleared! Keep playing, or cash out now for +%.1f?"
 			% play_phase.cash_out_offer)
 	var wants_cash_out := await _await_choice(
 			_continuation_row, _cash_out_button, _keep_playing_button)
 	if wants_cash_out:
-		play_phase.cash_out()
+		stage.cash_out()
 	else:
-		play_phase.keep_playing()
+		stage.keep_playing()
 
 
-## Shows `row`, waits for either button, hides `row`, and returns true if
-## `button_true` was the one pressed.
 func _await_choice(row: Control, button_true: Button, button_false: Button) -> bool:
 	row.visible = true
 	var on_true := func(): _choice_made.emit(true)
@@ -407,19 +677,70 @@ func _set_winnings_display(value: float) -> void:
 	_winnings_label.text = "Winnings: %.1f / %.0f" % [value, EconomyConfig.QUOTA]
 
 
-func _handle_outcome() -> void:
+# --- Result screen ---
+
+func _build_result_screen() -> void:
+	_result_root = VBoxContainer.new()
+	_result_root.anchor_right = 1.0
+	_result_root.anchor_bottom = 1.0
+	_result_root.alignment = BoxContainer.ALIGNMENT_CENTER
+	_result_root.add_theme_constant_override("separation", 20)
+	add_child(_result_root)
+
+	_result_title_label = Label.new()
+	_result_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_result_title_label.add_theme_font_size_override("font_size", 30)
+	_result_root.add_child(_result_title_label)
+
+	_result_summary_label = Label.new()
+	_result_summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_result_root.add_child(_result_summary_label)
+
+	_continue_button = Button.new()
+	_continue_button.text = "CONTINUE"
+	_continue_button.custom_minimum_size = Vector2(160, 44)
+	_continue_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_continue_button.pressed.connect(_on_continue_pressed)
+	_result_root.add_child(_continue_button)
+
+
+## Called once the stage has ended (win/bust/out-of-spins) -- a short beat
+## on the play screen so the deciding spin/treasure is still visible, then
+## the result screen takes over.
+func _finish_stage() -> void:
 	match play_phase.outcome:
 		PlayPhase.Outcome.WIN:
 			_status_label.text = "QUOTA CLEARED -- you win."
-			_spin_button.disabled = true
 		PlayPhase.Outcome.BUST:
 			_status_label.text = "BANKROLL EMPTY -- run over."
-			_spin_button.disabled = true
 		PlayPhase.Outcome.OUT_OF_SPINS:
 			_status_label.text = ("OUT OF SPINS (%d/%d used) -- run over, %.1f short of quota."
 					% [play_phase.spins_used, EconomyConfig.SPIN_CAP,
 					   EconomyConfig.QUOTA - pools.winnings])
-			_spin_button.disabled = true
+	_spin_button.disabled = true
+	await get_tree().create_timer(1.2).timeout
+	_show_result_screen()
+
+
+func _show_result_screen() -> void:
+	match play_phase.outcome:
+		PlayPhase.Outcome.WIN:
+			_result_title_label.text = "STAGE CLEARED"
+		PlayPhase.Outcome.BUST:
+			_result_title_label.text = "BANKROLL EMPTY"
+		PlayPhase.Outcome.OUT_OF_SPINS:
+			_result_title_label.text = "OUT OF SPINS"
 		_:
-			_spin_button.disabled = false
-			_bet_spinbox.editable = true
+			_result_title_label.text = "STAGE OVER"
+	_result_summary_label.text = ("Winnings: %.1f / %.0f -- spins used: %d/%d"
+			% [pools.winnings, EconomyConfig.QUOTA, play_phase.spins_used, EconomyConfig.SPIN_CAP])
+	_set_screen(GameState.RESULT)
+
+
+func _on_continue_pressed() -> void:
+	# D21: a cleared stage's winnings become the next build phase's
+	# wallet. A loss has nothing to cycle forward (Phase 4 has no
+	# meta-progression yet, see STARTING_WALLET), so it restarts fresh.
+	var next_wallet: float = pools.winnings if play_phase.outcome == PlayPhase.Outcome.WIN \
+			else STARTING_WALLET
+	_start_build_phase(next_wallet)
