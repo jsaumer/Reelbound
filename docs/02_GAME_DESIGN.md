@@ -122,13 +122,41 @@ They modify the play phase. The richest ones exploit pool separation by **transf
 
 Implemented as small modifiers on a few lifecycle hooks: `onBet`, `onSpin`, `onWin`, `onStageEnd`. Keep the hook set minimal.
 
+### Persistence — LOCKED (D26)
+
+**Boons and curses persist for the entire run once acquired** — not redrafted each stage's build phase. This falls out of `D21`: the wallet already cycles across the whole run (only the pools reset per stage), so a boon is something you *own* going forward, the same way a Balatro joker or Slay the Spire relic persists until sold/removed. Re-drafting every stage would also fight the shelf's own scarcity — see `D5`'s curated, rotating shelf.
+
+### Symbol enchantments — LOCKED (D27)
+
+A boon or curse can optionally **target a specific owned symbol instead of the whole run** — it still persists for the run (you own the enchanted symbol), but its trigger becomes "this symbol is part of a winning combination" instead of a global hook (`onBet`/`onSpin`/`onWin`/`onStageEnd`). This generalizes ideas already in the backlog that were each hardcoded one-offs — the Multiplier Wild ("×2/×3 on any win it joins"), Tax/Bomb/Leech curse symbols — into one system: any boon/curse effect can be written once and offered either as a run-wide version or a symbol-targeted version.
+
+**The target symbol is always player-chosen when drafted, never randomly assigned.** This isn't a new rule — it's `D17`'s existing guardrail ("random-rider spice... minimal, always visible, never primary," and `08`'s "randomness belongs in visible drafted choices, not silent rolls") applied to this specific mechanic. A silently-random enchantment target would make builds feel unowned, the exact failure mode `08` already warns against.
+
 ## 7. Meta-progression
 
 Between runs (and possibly an in-run shop between stages), unlock new symbols, features, bet types, boons/curses, slot types, the **bonus capability** (`08`), and starting modifiers. Progression axes: **symbol density**, **slot type** (`07`), the **bonus unlock ladder** (`08`), and **structure** — the current 5-reel/3-row, 5-payline machine (`sim/config.py` / `game/scripts/economy/economy_config.gd`) is the validated **base** configuration for the Payline type, not a ceiling. Additional paylines and additional reels/rows are a distinct unlock axis from symbol density — more structure changes hit *frequency* and *combination count* independent of what's actually on the reels. Idea, not yet designed in detail: see `03_IDEA_BACKLOG.md`.
 
 **Constraint — the core must stand alone.** Because bonuses are a mid-game unlock, the first several runs must be genuinely fun on economy alone. If the game is only fun once bonuses appear, the core is too thin — Phase 1 (prove the economy headless) is designed to catch exactly this.
 
-Open question: **in-run shop** (spend winnings between stages) vs **cross-run permanent unlocks** vs both. Likely both. *(D8.)*
+**In-run shop vs. cross-run permanent unlocks — ANSWERED (D8): both, sequenced.** The in-run shop is `D5`'s drafted shelf, built in Phase 4. Cross-run permanent unlocks (symbol density, structural upgrades, the bonus ladder, bet types, slot types) are Phase 6 content layered on top — they widen *what can appear on* the in-run shelf, they don't replace it.
+
+### Acquisition structure — what's earned vs. bought
+
+Every category of ownable content, and how it's meant to reach the player:
+
+| Category | Acquired via | Scope | Costs | Gated by | Builds in |
+|---|---|---|---|---|---|
+| Standard symbols | In-run shelf purchase (`D5`) | Per-machine (this stage) | Wallet | Symbol-density meta-unlocks | Phase 4 (mechanic) / 6 (content) |
+| Scatter / Wild / Bonus-trigger symbols | Same shelf purchase | Per-machine | Wallet | Density unlocks + bonus-capability unlock | Phase 4 / 5.7 / 6 |
+| Curse symbols | Mostly **forced** — boss/event, not bought | Per-machine (imposed) | Bankroll-as-bribe to avoid, sometimes | — | Phase 5, boss/event system |
+| Structural upgrades (paylines/reels/rows) | Cross-run meta-unlock (ceiling) + in-run purchase (per use) | Meta: permanent. In-run: per-machine | Meta-currency + wallet | Meta-unlock ladder | Phase 6 (unlock), reuses Phase 4 shelf |
+| Boons / curses (run-wide) | Drafted shelf pick (`08` Tier 3) | Whole run (`D26`) | Wallet | Nothing baseline | Phase 5 |
+| Symbol enchantments | Drafted shelf pick, player picks the target symbol (`D27`) | Whole run, conditional trigger | Wallet | Nothing baseline | Phase 5 |
+| Bonus features | Three tiers (`08`): meta capability → in-run wiring → in-stage charge/tuning | Meta: permanent. Wiring: per-machine. Charge/tuning: per-spin | Meta-currency → wallet → density + drafts | The unlock ladder itself | Phase 6 → 4 (wiring reuses the shelf) → 5.7 |
+| Bet types | Cross-run meta-unlock, then a live per-spin choice | Permanent unlock, per-spin use | Meta-currency | Meta-unlock | Phase 5 / 6 |
+| Slot types | Meta-progression reveal; stage-dictated (`D13`) | Stage property | Meta-currency (widens the pool) | Meta-unlock | Phase 5.5 / 6 |
+
+**Phase-4 dependency (D28):** `08`'s Tier 2 already establishes that bonus-wiring purchases compete for the *same* build-budget as symbols, and boon/enchantment drafts work the same way. So the Phase 4 shelf must be built against a generic **Shelf Item** shape — `{id, category, cost, effect, unlock_requirement}` — populated with `category: symbol` items only for now (matching K1: early runs have no bonus system at all). Boons, enchantments, bonus-wiring, and structural items plug into the same mechanism later without a rework. This is the one piece of Phase 5/5.7/6 design that Phase 4's *data model* — not its content — needs to account for now.
 
 ## 8. Design pillars (the guardrails)
 

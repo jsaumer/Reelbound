@@ -51,7 +51,7 @@ A running catalogue of raw ideas to draw from during content design. Nothing her
 - "+1 respin on hold-and-spin."
 - "Meter charges 20% faster but bonuses pay 15% less."
 
-## Boons (player-positive)
+## Boons (player-positive) — persist for the whole run once drafted (`D26`)
 
 - **Overflow** — winnings above X convert back into bankroll (runway).
 - **Frugal Payout** — leftover bankroll at stage end adds to score.
@@ -67,7 +67,7 @@ A running catalogue of raw ideas to draw from during content design. Nothing her
 - **Momentum** — every bonus trigger grants +1 spin.
 - **Overtime** — if you're within X% of quota when the cap hits, get +3 spins.
 
-## Curses (player-negative)
+## Curses (player-negative) — persist for the whole run once drafted (`D26`)
 
 - **Leak** — every spin, a % of winnings drains back out (a clock).
 - **Debt Spiral** — once bankroll is low, bets draw from winnings.
@@ -81,6 +81,15 @@ A running catalogue of raw ideas to draw from during content design. Nothing her
 - **Heavy Spins** — big bets cost 2 spins against the cap each.
 - **Fraying** — lose a spin from the cap whenever bankroll drops below a threshold.
 - **Sudden Death** — the last 3 spins pay nothing if quota isn't already in reach.
+
+## Symbol enchantments (`D27`)
+
+A boon/curse whose trigger is "this owned symbol is in a winning combination" instead of a global hook. Always a drafted, player-chosen target — never randomly assigned (see `D27`'s reasoning). These generalize ideas that already existed here as one-off hardcoded symbols/wilds:
+
+- **Multiplier Wild**, generalized — any symbol enchanted with "×2/×3 on any win it joins," not just wilds.
+- **Sticky / Expanding**, generalized — enchant *which* symbol gets the sticky/expanding behavior, rather than it being a fixed wild variant.
+- **Tax / Bomb / Leech**, reframed — these are curse *enchantments* on a specific symbol rather than a separate "curse symbol" kind; the enchantment system subsumes them.
+- New ideas the system opens up: "this Bell pays double but only on paylines 1-3," "this Star's win also refunds its spin (spin-cap interaction)," "this Cherry's win is halved but charges the bonus meter double."
 
 ## Bet types (unlockable)
 
