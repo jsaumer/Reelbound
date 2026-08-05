@@ -34,9 +34,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from sim.pools import Pools
-from sim.reel import Machine
-from sim.paytable import resolve_spin
-from sim.odds import theoretical_rtp
 from sim.strategy import never_gamble, always_keep_playing
 
 
@@ -60,61 +57,23 @@ class PlayResult:
 
 def run_play_phase(sim_config, bet_strategy, rng, gamble_strategy=never_gamble,
                     continuation_strategy=always_keep_playing) -> PlayResult:
-    machine = Machine(sim_config.machine.reel_strips, sim_config.machine.num_rows)
-    pools = Pools(bankroll=sim_config.economy.starting_bankroll)
-    payouts = []
-    winnings_deltas = []
-    spins_used = 0
-    # Fixed for the whole run (same machine throughout) -- computed once
-    # rather than on every quota-cleared spin, which could otherwise mean
-    # re-deriving it dozens of times per run across thousands of runs.
-    machine_rtp = theoretical_rtp(sim_config.machine.reel_strips,
-                                   sim_config.machine.paylines,
-                                   sim_config.machine.paytable)
+    """A flat play phase is exactly a stage whose every node is a plain
+    spin -- so this is a thin wrapper over sim.stage.run_stage with an
+    all-MINOR sequence (Phase 4.5 consolidation: one dual-limiter loop to
+    maintain instead of two drifting copies). Import is deferred because
+    stage.py imports this module's helpers.
 
-    while True:
-        if pools.winnings >= sim_config.economy.quota:
-            cashed_out, bonus = _resolve_quota_cleared_choice(
-                pools, sim_config, spins_used, continuation_strategy, machine_rtp)
-            if cashed_out or bonus is None:
-                # bonus is None only when there's no runway left to choose
-                # from at all -- the natural end, reached exactly at/after
-                # clearing quota.
-                return PlayResult(Outcome.WIN, spins_used, pools.winnings,
-                                   pools.bankroll, payouts, winnings_deltas,
-                                   cashed_out=cashed_out, cash_out_bonus=bonus or 0.0)
-            # else: chose to keep playing -- fall through to spin again.
-        else:
-            if pools.bankroll <= 0:
-                return PlayResult(Outcome.BUST, spins_used, pools.winnings,
-                                   pools.bankroll, payouts, winnings_deltas)
-            if spins_used >= sim_config.economy.spin_cap:
-                return PlayResult(Outcome.OUT_OF_SPINS, spins_used, pools.winnings,
-                                   pools.bankroll, payouts, winnings_deltas)
+    rng consumption and results are bit-identical to the old standalone
+    loop for the same seed -- the deterministic tests in
+    tests/test_play_phase.py pin this."""
+    from sim.stage import run_stage, NodeType
 
-        spins_remaining = sim_config.economy.spin_cap - spins_used
-        bet = bet_strategy(pools.bankroll, sim_config.economy, spins_remaining, pools.winnings)
-        bet = max(0.0, min(bet, pools.bankroll))
-        if bet <= 0:
-            outcome = Outcome.WIN if pools.winnings >= sim_config.economy.quota else Outcome.BUST
-            return PlayResult(outcome, spins_used, pools.winnings,
-                               pools.bankroll, payouts, winnings_deltas)
-
-        pools.spend_from_bankroll(bet)
-        spins_used += 1
-
-        grid = machine.spin(rng)
-        payout = resolve_spin(grid, sim_config.machine.paylines,
-                               sim_config.machine.paytable, bet,
-                               sim_config.machine.min_match,
-                               sim_config.machine.wild_symbol)
-        payouts.append(payout)
-
-        winnings_before = pools.winnings
-        if payout > 0:
-            pools.add_to_pending(payout)
-            _resolve_gamble(pools, sim_config.economy, gamble_strategy, rng)
-        winnings_deltas.append(pools.winnings - winnings_before)
+    result = run_stage(sim_config, [NodeType.MINOR], bet_strategy, rng,
+                        gamble_strategy=gamble_strategy,
+                        continuation_strategy=continuation_strategy)
+    return PlayResult(result.outcome, result.spins_used, result.final_winnings,
+                       result.final_bankroll, result.payouts, result.winnings_deltas,
+                       cashed_out=result.cashed_out, cash_out_bonus=result.cash_out_bonus)
 
 
 def _resolve_gamble(pools: Pools, economy, gamble_strategy, rng) -> None:

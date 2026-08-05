@@ -75,6 +75,10 @@ class StageResult:
     final_winnings: float
     final_bankroll: float
     nodes_visited: list = field(default_factory=list)
+    payouts: list = field(default_factory=list)          # raw per-spin reel payout
+    winnings_deltas: list = field(default_factory=list)  # banked per spin (post-gamble); TREASURE bumps excluded
+    cashed_out: bool = False
+    cash_out_bonus: float = 0.0
 
 
 def run_stage(sim_config, node_sequence, bet_strategy, rng,
@@ -84,6 +88,8 @@ def run_stage(sim_config, node_sequence, bet_strategy, rng,
     pools = Pools(bankroll=sim_config.economy.starting_bankroll)
     spins_used = 0
     nodes_visited = []
+    payouts = []
+    winnings_deltas = []
     machine_rtp = theoretical_rtp(sim_config.machine.reel_strips,
                                    sim_config.machine.paylines,
                                    sim_config.machine.paytable)
@@ -93,16 +99,23 @@ def run_stage(sim_config, node_sequence, bet_strategy, rng,
             cashed_out, bonus = _resolve_quota_cleared_choice(
                 pools, sim_config, spins_used, continuation_strategy, machine_rtp)
             if cashed_out or bonus is None:
+                # bonus is None only when there's no runway left to choose
+                # from at all -- the natural end, reached exactly at/after
+                # clearing quota.
                 return StageResult(Outcome.WIN, spins_used, pools.winnings,
-                                    pools.bankroll, nodes_visited)
+                                    pools.bankroll, nodes_visited,
+                                    payouts, winnings_deltas,
+                                    cashed_out=cashed_out, cash_out_bonus=bonus or 0.0)
             # else: chose to keep playing -- fall through to this node.
         else:
             if pools.bankroll <= 0:
                 return StageResult(Outcome.BUST, spins_used, pools.winnings,
-                                    pools.bankroll, nodes_visited)
+                                    pools.bankroll, nodes_visited,
+                                    payouts, winnings_deltas)
             if spins_used >= sim_config.economy.spin_cap:
                 return StageResult(Outcome.OUT_OF_SPINS, spins_used, pools.winnings,
-                                    pools.bankroll, nodes_visited)
+                                    pools.bankroll, nodes_visited,
+                                    payouts, winnings_deltas)
 
         nodes_visited.append(node_type)
 
@@ -128,7 +141,8 @@ def run_stage(sim_config, node_sequence, bet_strategy, rng,
         if bet <= 0:
             outcome = Outcome.WIN if pools.winnings >= sim_config.economy.quota else Outcome.BUST
             return StageResult(outcome, spins_used, pools.winnings,
-                                pools.bankroll, nodes_visited)
+                                pools.bankroll, nodes_visited,
+                                payouts, winnings_deltas)
 
         pools.spend_from_bankroll(bet)
         spins_used += 1
@@ -138,7 +152,10 @@ def run_stage(sim_config, node_sequence, bet_strategy, rng,
                                sim_config.machine.paytable, bet,
                                sim_config.machine.min_match,
                                sim_config.machine.wild_symbol)
+        payouts.append(payout)
 
+        winnings_before = pools.winnings
         if payout > 0:
             pools.add_to_pending(payout)
             _resolve_gamble(pools, sim_config.economy, gamble_strategy, rng)
+        winnings_deltas.append(pools.winnings - winnings_before)
