@@ -90,9 +90,13 @@ func _on_dim_input(event: InputEvent) -> void:
 ## need to change, since the symbol/odds list below is already
 ## type-agnostic.
 func open_for(reel_strips: Array, paylines: Array, paytable: Dictionary,
-		min_match: int, quota: float) -> void:
+		min_match: int, quota: float, reel_ledger: Dictionary = {}) -> void:
 	for child in _list.get_children():
 		child.queue_free()
+
+	if not reel_ledger.is_empty():
+		_list.add_child(_build_reel_ledger_section(reel_ledger))
+		_list.add_child(HSeparator.new())
 
 	_list.add_child(_build_rules_section(reel_strips, paylines, min_match))
 	_list.add_child(HSeparator.new())
@@ -117,6 +121,37 @@ func open_for(reel_strips: Array, paylines: Array, paytable: Dictionary,
 		_list.add_child(_build_symbol_row(symbol, paytable[symbol], probs.get(symbol, {})))
 
 	visible = true
+
+
+## D33: a small per-reel ledger of what the reel editor added this build
+## phase (offers bought + any direct edits), so it's not forgotten by the
+## time you're mid-stage deciding bets. `reel_ledger` is {reel_index:
+## {symbol: quantity}}, from BuildPhase.reel_ledger() -- only rendered
+## when non-empty (a zero-purchase build phase has nothing to show).
+func _build_reel_ledger_section(reel_ledger: Dictionary) -> Control:
+	var section := VBoxContainer.new()
+	section.add_theme_constant_override("separation", 4)
+
+	var heading := Label.new()
+	heading.text = "Added this build phase"
+	heading.add_theme_font_size_override("font_size", 16)
+	section.add_child(heading)
+
+	var reel_indices: Array = reel_ledger.keys()
+	reel_indices.sort()
+	for reel_index in reel_indices:
+		var per_reel: Dictionary = reel_ledger[reel_index]
+		var symbols: Array = per_reel.keys()
+		symbols.sort()
+		var parts := []
+		for symbol in symbols:
+			parts.append("+%d %s" % [per_reel[symbol], symbol])
+		var line := Label.new()
+		line.text = "Reel %d: %s" % [reel_index + 1, ", ".join(parts)]
+		line.add_theme_font_size_override("font_size", 13)
+		section.add_child(line)
+
+	return section
 
 
 ## Describes the actual match rule -- Payline only, for now (docs/07:

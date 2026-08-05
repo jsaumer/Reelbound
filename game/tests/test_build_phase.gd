@@ -211,3 +211,94 @@ func test_buying_one_offer_leaves_the_others_untouched():
 	build.buy_reel_offer(0)
 	for i in range(1, build.reel_offers().size()):
 		assert_false(build.reel_offers()[i].bought)
+
+
+func test_reroll_cost_starts_at_the_base():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_eq(build.reroll_cost(), BuildPhase.REEL_REROLL_BASE_COST)
+
+
+func test_reroll_cost_climbs_each_time():
+	var build := BuildPhase.new(1000.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	var first_cost := build.reroll_cost()
+	build.reroll_reel_offers()
+	var second_cost := build.reroll_cost()
+	assert_eq(second_cost, first_cost + BuildPhase.REEL_REROLL_COST_INCREMENT)
+
+
+func test_reroll_spends_wallet_and_replaces_offers():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	var offers_before := []
+	for o in build.reel_offers():
+		offers_before.append([o.reel_index, o.symbol])
+	var wallet_before: float = build.wallet
+
+	var rerolled := build.reroll_reel_offers()
+
+	assert_true(rerolled)
+	assert_eq(build.wallet, wallet_before - BuildPhase.REEL_REROLL_BASE_COST)
+	var offers_after := []
+	for o in build.reel_offers():
+		offers_after.append([o.reel_index, o.symbol])
+	assert_ne(offers_before, offers_after)
+
+
+func test_reroll_leaves_bought_offers_untouched():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	build.buy_reel_offer(0)
+	var bought_offer = build.reel_offers()[0]
+
+	build.reroll_reel_offers()
+
+	assert_same(build.reel_offers()[0], bought_offer)
+	assert_true(build.reel_offers()[0].bought)
+
+
+func test_cannot_reroll_without_enough_wallet():
+	var build := BuildPhase.new(1.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_false(build.reroll_reel_offers())
+	assert_eq(build.wallet, 1.0)
+	assert_eq(build.reroll_count, 0)
+
+
+func test_ledger_empty_before_any_purchase():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_eq(build.reel_ledger(), {})
+
+
+func test_ledger_records_a_purchase_via_offer():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	var offer = build.reel_offers()[0]
+	build.buy_reel_offer(0)
+
+	var ledger := build.reel_ledger()
+
+	assert_eq(ledger[offer.reel_index][offer.symbol], offer.quantity)
+
+
+func test_ledger_records_a_direct_edit_reel_call():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	build.edit_reel(2, "cherry", 3)
+	assert_eq(build.reel_ledger(), {2: {"cherry": 3}})
+
+
+func test_ledger_aggregates_repeated_purchases_of_the_same_symbol_on_the_same_reel():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	build.edit_reel(1, "cherry", 1)
+	build.edit_reel(1, "cherry", 1)
+	assert_eq(build.reel_ledger(), {1: {"cherry": 2}})
+
+
+func test_ledger_keeps_different_reels_separate():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	build.edit_reel(0, "cherry", 1)
+	build.edit_reel(1, "cherry", 1)
+	var ledger := build.reel_ledger()
+	assert_eq(ledger[0], {"cherry": 1})
+	assert_eq(ledger[1], {"cherry": 1})
+
+
+func test_ledger_a_failed_edit_is_not_logged():
+	var build := BuildPhase.new(1.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_false(build.edit_reel(0, "crown", 5))  # too expensive
+	assert_eq(build.reel_ledger(), {})

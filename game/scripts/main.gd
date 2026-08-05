@@ -32,6 +32,7 @@ var pools: Pools
 var _build_root: Control
 var _wallet_label: Label
 var _reel_offers_box: VBoxContainer
+var _reroll_button: Button
 var _shelf_box: VBoxContainer
 var _load_spinbox: SpinBox
 var _load_preview_label: Label
@@ -214,12 +215,20 @@ func _build_build_screen() -> void:
 	_build_root.add_child(_wallet_label)
 
 	var editor_title := Label.new()
-	editor_title.text = "Reel editor (D29/D32) -- pre-rolled offers, rerolled each build phase"
+	editor_title.text = "Reel editor (D29/D32) -- pre-rolled offers"
 	_build_root.add_child(editor_title)
 
 	_reel_offers_box = VBoxContainer.new()
 	_reel_offers_box.add_theme_constant_override("separation", 6)
 	_build_root.add_child(_reel_offers_box)
+
+	var reroll_row := HBoxContainer.new()
+	reroll_row.add_theme_constant_override("separation", 12)
+	_build_root.add_child(reroll_row)
+
+	_reroll_button = Button.new()
+	_reroll_button.pressed.connect(_on_reroll_pressed)
+	reroll_row.add_child(_reroll_button)
 
 	var shelf_title := Label.new()
 	shelf_title.text = "Shelf (Relics, D28/D30)"
@@ -302,6 +311,9 @@ func _refresh_build_screen() -> void:
 		row.add_child(buy_button)
 		_shelf_box.add_child(row)
 
+	_reroll_button.text = "Reroll offers (%.1f)" % build_phase.reroll_cost()
+	_reroll_button.disabled = build_phase.reroll_cost() > build_phase.wallet
+
 	_load_spinbox.max_value = max(0.0, build_phase.wallet)
 	_on_load_controls_changed()
 
@@ -318,6 +330,14 @@ func _on_buy_reel_offer_pressed(offer_index: int) -> void:
 				% [offer.quantity, offer.symbol, offer.reel_index + 1])
 	else:
 		_build_status_label.text = "Can't afford that offer."
+	_refresh_build_screen()
+
+
+func _on_reroll_pressed() -> void:
+	if build_phase.reroll_reel_offers():
+		_build_status_label.text = "Rerolled the offers."
+	else:
+		_build_status_label.text = "Can't afford a reroll."
 	_refresh_build_screen()
 
 
@@ -436,7 +456,8 @@ func _build_play_screen() -> void:
 
 func _on_info_pressed() -> void:
 	_paytable_panel.open_for(play_phase.machine.reel_strips, play_phase.paylines,
-			play_phase.paytable, play_phase.min_match, play_phase.quota)
+			play_phase.paytable, play_phase.min_match, play_phase.quota,
+			build_phase.reel_ledger())
 
 
 func _refresh_pool_labels() -> void:

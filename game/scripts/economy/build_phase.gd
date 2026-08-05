@@ -26,6 +26,13 @@ const REEL_EDIT_COST_FACTOR := 0.5
 const REEL_OFFER_COUNT := 3
 const REEL_OFFER_QUANTITY := 1
 
+# D33: rerolling costs more each time, within a single build phase (a
+# fresh BuildPhase resets the count) -- a real trade against the wallet,
+# not a free do-over. Linear, not multiplicative: simplest thing that's
+# still a climbing cost; not validated against any particular budget yet.
+const REEL_REROLL_BASE_COST := 5.0
+const REEL_REROLL_COST_INCREMENT := 5.0
+
 
 ## A shelf item -- D28's generic Shelf Item shape, player-facing name
 ## "Relics".
@@ -67,6 +74,20 @@ class ReelOffer:
 		cost = p_cost
 
 
+## One completed reel-editor purchase, logged by edit_reel() (so it
+## captures both offer buys and any direct call) -- source data for
+## reel_ledger(), D33's per-reel purchase summary.
+class ReelPurchaseRecord:
+	var reel_index: int
+	var symbol: String
+	var quantity: int
+
+	func _init(p_reel_index: int, p_symbol: String, p_quantity: int) -> void:
+		reel_index = p_reel_index
+		symbol = p_symbol
+		quantity = p_quantity
+
+
 var wallet: float
 var reel_strips: Array
 var paytable: Dictionary
@@ -74,6 +95,8 @@ var min_bet: float
 var owned_symbols: Array
 var loaded_bankroll: float = 0.0
 var rng: RandomNumberGenerator
+var reroll_count: int = 0
+var reel_purchase_log: Array = []
 var _reel_offers: Array = []
 
 
@@ -97,24 +120,23 @@ func _init(p_wallet: float, p_reel_strips: Array, p_paytable: Dictionary,
 	# D32: rolled once per build phase, from whatever's owned at the start
 	# of it -- a symbol bought from the shelf mid-phase (Wild) doesn't
 	# retroactively appear in this phase's offers, only the next one's.
-	_reel_offers = _generate_reel_offers()
+	_reel_offers = []
+	for i in range(REEL_OFFER_COUNT):
+		_reel_offers.append(_roll_one_offer())
 
 
 func shelf() -> Array:
 	return default_shelf(owned_symbols)
 
 
-func _generate_reel_offers() -> Array:
+func _roll_one_offer() -> ReelOffer:
 	var symbols: Array = owned_symbols.duplicate()
 	symbols.sort()
-	var offers := []
-	for i in range(REEL_OFFER_COUNT):
-		var symbol: String = symbols[rng.randi_range(0, symbols.size() - 1)]
-		var reel_index := rng.randi_range(0, reel_strips.size() - 1)
-		var cost := (ReelEditor.symbol_tier_value(symbol, paytable)
-				* REEL_OFFER_QUANTITY * REEL_EDIT_COST_FACTOR)
-		offers.append(ReelOffer.new(reel_index, symbol, REEL_OFFER_QUANTITY, cost))
-	return offers
+	var symbol: String = symbols[rng.randi_range(0, symbols.size() - 1)]
+	var reel_index := rng.randi_range(0, reel_strips.size() - 1)
+	var cost := (ReelEditor.symbol_tier_value(symbol, paytable)
+			* REEL_OFFER_QUANTITY * REEL_EDIT_COST_FACTOR)
+	return ReelOffer.new(reel_index, symbol, REEL_OFFER_QUANTITY, cost)
 
 
 func reel_offers() -> Array:
@@ -135,6 +157,42 @@ func buy_reel_offer(offer_index: int) -> bool:
 		offer.bought = true
 		return true
 	return false
+
+
+func reroll_cost() -> float:
+	return REEL_REROLL_BASE_COST + reroll_count * REEL_REROLL_COST_INCREMENT
+
+
+## D33: re-rolls every *unbought* offer at a climbing price --
+## already-bought offers are done deals (their swap already happened)
+## and stay put, both because there's nothing left to reroll about them
+## and because they're the reel_ledger's record of what you actually own
+## now.
+func reroll_reel_offers() -> bool:
+	var cost := reroll_cost()
+	if cost > wallet + 1e-9:
+		return false
+	wallet -= cost
+	reroll_count += 1
+	for i in range(_reel_offers.size()):
+		var offer: ReelOffer = _reel_offers[i]
+		if not offer.bought:
+			_reel_offers[i] = _roll_one_offer()
+	return true
+
+
+## Per-reel breakdown of every symbol added via the reel editor this
+## build phase, aggregated by symbol -- so purchases aren't forgotten by
+## the time the stage actually starts. Returns {reel_index: {symbol:
+## total_quantity}}.
+func reel_ledger() -> Dictionary:
+	var ledger := {}
+	for record in reel_purchase_log:
+		if not ledger.has(record.reel_index):
+			ledger[record.reel_index] = {}
+		var per_reel: Dictionary = ledger[record.reel_index]
+		per_reel[record.symbol] = per_reel.get(record.symbol, 0) + record.quantity
+	return ledger
 
 
 func buy_relic(relic_id: String) -> bool:
@@ -171,6 +229,7 @@ func edit_reel(reel_index: int, target_symbol: String, quantity: int) -> bool:
 	wallet -= cost
 	reel_strips[reel_index] = ReelEditor.apply_reel_edit(
 			reel_strips[reel_index], target_symbol, quantity, paytable)
+	reel_purchase_log.append(ReelPurchaseRecord.new(reel_index, target_symbol, quantity))
 	return true
 
 
