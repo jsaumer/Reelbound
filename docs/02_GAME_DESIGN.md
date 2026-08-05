@@ -52,11 +52,29 @@ Spend a budget to author the machine and grow the bankroll. The **split** betwee
 - More into the **bankroll** → more spins, weaker per-spin payout.
 
 Authoring actions:
-- Buy **symbols** from a rotating **shelf** and place them on **reels**. Adding a high-value symbol takes a slot filler could have used → feast-or-famine dilution. Money spent here is gone.
+- Tune symbol **density** directly in the **reel editor** — no shelf slot needed (`D29`).
+- Buy **new symbol kinds** you don't yet own from a rotating **shelf** (`D30`).
 - Wire up **bonus features** *(only once the bonus capability is unlocked — see `08`; early runs skip this entirely)*.
 - **Load bankroll** — an explicit action, shown in spins (≈ bankroll ÷ min bet). Leftover wallet auto-converts to bankroll before play (no-waste failsafe). *(See locked mechanic, D5.)*
 
 **Starting deck & density progression.** The player begins with a base set of reels/symbols. Meta-progression unlocks new symbols, wilds, multipliers, and bonus symbols, which add to the **density** of those items available on the reels. Density is one progression axis; **slot type** (`07`) is another, and it interacts with density — the same symbol pool plays very differently by type.
+
+### Reel editor vs. shelf — LOCKED (D29)
+
+Symbol acquisition splits into two distinct interactions, not one:
+
+- **Reel editor (mechanical, always available, no shelf slot).** Fluid density tuning among symbol kinds you **already own** — pick a reel, spend wallet, and it converts copies of that reel's *cheapest-tier filler symbol present* (cascading to the next-cheapest if exhausted) into the symbol you're adding, keeping that reel's total strip length unchanged. This *is* "adding a high-value symbol takes a slot filler could have used → feast-or-famine dilution" (the mechanic was already described in prose above; this is its concrete shape) — a fixed-slot swap, not a growing strip, so total probability mass per reel is conserved and every purchase is a clean, legible trade. Zero purchases = the validated Phase-1/2/3 baseline machine, unchanged.
+- **Shelf (curated, rotating, scarce — `D5`).** Reserved for symbol kinds/instances you **don't yet own** — where scarcity and curation mean something. Buying more copies of a symbol you already have is a reel-editor action, not a shelf draft.
+
+### Shelf content tiers — LOCKED (D30)
+
+Three tiers of "new symbol kind" the shelf can offer, only the first built in Phase 4:
+
+1. **New symbol kinds** — Wild (`02` §5: "substitutes") is Phase 4's shelf content. Scatter/bonus-trigger kinds come later, once bonus-system infrastructure (`08`) exists to make them mean anything.
+2. **Standard symbols valued above the current ceiling** (today, crown) — a designed counterpart to quota escalation (`D22`): later stages can both demand more *and* supply more powerful tools, not just get harder with no compensating upside. Needs a meta-progression unlock ladder (Phase 6) to gate *when* these appear; not built in Phase 4.
+3. **Enhanced symbols with an enchantment attached** (multipliers, etc.) — sold as a pre-built shelf item instead of applying `D27`'s enchantment system separately. Needs `D27` actually implemented (Phase 5); not built in Phase 4.
+
+Tiers 2 and 3 are **designed now, built later** — the Shelf Item shape (`D28`) isn't capped at crown's value and its `effect` field can carry an optional enchantment reference, but Phase 4 ships with only Wild as real content, matching K1 (no bonus-adjacent systems assumed in the early game).
 
 ### Build-phase budget & the machine-vs-bankroll split — LOCKED (D5)
 
