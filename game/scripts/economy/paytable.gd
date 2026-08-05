@@ -7,8 +7,13 @@ class_name Paytable
 extends RefCounted
 
 
+## `wild_symbol`, if non-empty, substitutes for whatever symbol a payline's
+## leftmost run resolves to (D30 tier 1). A leading wild defers its
+## identity to the first non-wild symbol scanned; an all-wild run pays the
+## wild's own paytable entry. Empty string (the default) reproduces the
+## pre-Phase-4 behavior exactly, since no real symbol is ever "".
 static func resolve_spin(grid: Array, paylines: Array, paytable: Dictionary,
-		bet: float, min_match: int = 3) -> float:
+		bet: float, min_match: int = 3, wild_symbol: String = "") -> float:
 	var total_multiplier := 0.0
 	var num_reels := grid.size()
 
@@ -16,13 +21,24 @@ static func resolve_spin(grid: Array, paylines: Array, paytable: Dictionary,
 		var symbols_on_line := []
 		for reel in range(num_reels):
 			symbols_on_line.append(grid[reel][line[reel]])
-		var first = symbols_on_line[0]
 
-		var match_len := 1
-		for i in range(1, symbols_on_line.size()):
-			if symbols_on_line[i] != first:
+		var first = null
+		var match_len := 0
+		for symbol in symbols_on_line:
+			var is_wild: bool = wild_symbol != "" and symbol == wild_symbol
+			if first == null:
+				if is_wild:
+					match_len += 1
+					continue
+				first = symbol
+				match_len += 1
+				continue
+			if symbol == first or is_wild:
+				match_len += 1
+			else:
 				break
-			match_len += 1
+		if first == null:
+			first = wild_symbol  # entire line was wild
 
 		if match_len < min_match:
 			continue

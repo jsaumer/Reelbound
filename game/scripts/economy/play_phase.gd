@@ -33,6 +33,9 @@ var starting_bankroll: float
 var gamble_win_probability: float
 var gamble_offer_probability: float
 var cash_out_discount: float
+var wild_symbol: String
+var min_bet: float
+var max_bet: float
 var rng: RandomNumberGenerator
 
 var spins_used: int = 0
@@ -48,7 +51,8 @@ var cash_out_offer: float = 0.0
 func _init(p_machine: ReelMachine, p_pools: Pools, p_paytable: Dictionary,
 		p_paylines: Array, p_min_match: int, p_quota: float, p_spin_cap: int,
 		p_rng: RandomNumberGenerator, p_gamble_win_probability: float = 0.5,
-		p_cash_out_discount: float = 0.4, p_gamble_offer_probability: float = 0.25) -> void:
+		p_cash_out_discount: float = 0.4, p_gamble_offer_probability: float = 0.25,
+		p_wild_symbol: String = "", p_min_bet: float = 1.0, p_max_bet: float = 3.0) -> void:
 	machine = p_machine
 	pools = p_pools
 	paytable = p_paytable
@@ -61,6 +65,9 @@ func _init(p_machine: ReelMachine, p_pools: Pools, p_paytable: Dictionary,
 	gamble_win_probability = p_gamble_win_probability
 	cash_out_discount = p_cash_out_discount
 	gamble_offer_probability = p_gamble_offer_probability
+	wild_symbol = p_wild_symbol
+	min_bet = p_min_bet
+	max_bet = p_max_bet
 
 
 func is_over() -> bool:
@@ -84,7 +91,7 @@ func spin(bet: float) -> float:
 
 	last_grid = machine.spin(rng)
 	last_payout = Paytable.resolve_spin(last_grid, paylines, paytable,
-			actual_bet, min_match)
+			actual_bet, min_match, wild_symbol)
 
 	if last_payout > 0.0:
 		pools.add_to_pending(last_payout)
@@ -170,7 +177,12 @@ func _offer_continuation_choice() -> void:
 		outcome = Outcome.WIN
 		return
 
-	var avg_bet_so_far: float = (starting_bankroll - pools.bankroll) / spins_used
+	# spins_used can be 0 here (Stage/D31: a free TREASURE node can clear
+	# quota before any spin) -- fall back to the configured bet range's
+	# midpoint rather than dividing by zero, matching sim's
+	# _resolve_quota_cleared_choice.
+	var avg_bet_so_far: float = ((starting_bankroll - pools.bankroll) / spins_used
+			if spins_used > 0 else (min_bet + max_bet) / 2.0)
 	var rtp := Odds.theoretical_rtp(machine.reel_strips, paylines, paytable)
 	var avg_per_spin: float = rtp * avg_bet_so_far
 	cash_out_offer = spins_remaining * avg_per_spin * cash_out_discount
@@ -181,6 +193,12 @@ func _estimate_remaining_spins() -> int:
 	var spin_cap_remaining: int = max(0, spin_cap - spins_used)
 	if pools.bankroll <= 0 or spin_cap_remaining <= 0:
 		return 0
+	# Guards a division by zero that spins_used==0 alone can't hit through
+	# spin() (a spin always increments spins_used before this can be
+	# reached) -- but Stage (D31) can clear quota via a free TREASURE node
+	# before any spin happens, so this path is real there.
+	if spins_used <= 0:
+		return spin_cap_remaining
 
 	var avg_bet_so_far: float = (starting_bankroll - pools.bankroll) / spins_used
 	if avg_bet_so_far <= 0.0:
