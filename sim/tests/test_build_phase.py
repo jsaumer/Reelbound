@@ -189,16 +189,35 @@ class TestReroll(unittest.TestCase):
         offers_after = [(o.reel_index, o.symbol) for o in build.reel_offers()]
         self.assertNotEqual(offers_before, offers_after)
 
-    def test_reroll_leaves_bought_offers_untouched(self):
+    def test_reroll_also_resets_a_bought_offers_slot(self):
         build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
                             rng=random.Random(1))
         build.buy_reel_offer(0)
-        bought_offer = build.reel_offers()[0]
+        self.assertTrue(build.reel_offers()[0].bought)
 
         build.reroll_reel_offers()
 
-        self.assertIs(build.reel_offers()[0], bought_offer)
-        self.assertTrue(build.reel_offers()[0].bought)
+        self.assertFalse(build.reel_offers()[0].bought)
+
+    def test_reroll_does_not_undo_a_previous_purchase(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        offer = build.reel_offers()[0]
+        build.buy_reel_offer(0)
+        strip_after_purchase = list(build.reel_strips[offer.reel_index])
+        ledger_after_purchase = build.reel_ledger()
+
+        build.reroll_reel_offers()
+
+        self.assertEqual(build.reel_strips[offer.reel_index], strip_after_purchase)
+        self.assertEqual(build.reel_ledger(), ledger_after_purchase)
+
+    def test_can_buy_the_same_slot_again_after_a_reroll(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        build.buy_reel_offer(0)
+        build.reroll_reel_offers()
+        self.assertTrue(build.buy_reel_offer(0))
 
     def test_cannot_reroll_without_enough_wallet(self):
         build = BuildPhase(wallet=1.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),

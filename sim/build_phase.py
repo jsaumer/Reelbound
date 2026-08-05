@@ -142,20 +142,19 @@ class BuildPhase:
         return REEL_REROLL_BASE_COST + self.reroll_count * REEL_REROLL_COST_INCREMENT
 
     def reroll_reel_offers(self) -> bool:
-        """D33: re-rolls every *unbought* offer at a climbing price --
-        already-bought offers are done deals (their swap already
-        happened) and stay put, both because there's nothing left to
-        reroll about them and because they're the reel_ledger's record of
-        what you actually own now."""
+        """D33/D35: re-rolls every offer at a climbing price, bought or
+        not. A previous purchase's actual effect (the reel swap, the
+        reel_ledger entry) already happened and is untouched by this --
+        rerolling only replaces the *offer* (what's available to buy
+        next), so a slot you already bought from becomes buyable again
+        instead of staying permanently spent for the rest of the build
+        phase."""
         cost = self.reroll_cost()
         if cost > self.wallet + 1e-9:
             return False
         self.wallet -= cost
         self.reroll_count += 1
-        self._reel_offers = [
-            offer if offer.bought else self._roll_one_offer()
-            for offer in self._reel_offers
-        ]
+        self._reel_offers = [self._roll_one_offer() for _ in self._reel_offers]
         return True
 
     def reel_ledger(self) -> dict:
