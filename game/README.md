@@ -39,7 +39,7 @@ repo root for how it's excluded from git.)
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
 ```
 
-92 GUT tests, ported from `sim/tests/` for economy parity: pools,
+103 GUT tests, ported from `sim/tests/` for economy parity: pools,
 paytable, dual-limiter, near-miss/big-win pure logic, `Odds`, gamble-up,
 D23 cash-out, Wild substitution, the reel editor, `BuildPhase`, and
 `Stage` (including a tension-band regression check).
@@ -87,8 +87,9 @@ tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --editor --path gam
     symbol present → a symbol you own, strip length conserved).
   - `build_phase.gd` — the build phase: wallet, the Wild-only Relic shelf
     (D28/D30), the reel editor exposed as 3 pre-rolled offers per build
-    phase rather than a free picker (D32), load-bankroll/finalize (D5's
-    no-waste failsafe).
+    phase rather than a free picker (D32) with a climbing-price reroll
+    for unbought offers and a per-reel purchase ledger (D33),
+    load-bankroll/finalize (D5's no-waste failsafe).
   - `stage.gd` — the D31 node path (minor/elite/event/rest/treasure) over
     one continuous economy. Unlike `sim/stage.py`'s batch loop, this
     composes a `PlayPhase` and drives it one node at a time — the same
@@ -104,10 +105,12 @@ tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --editor --path gam
 - `scripts/ui/reel_view.gd` — one reel column: flicker → staggered stop →
   elastic settle bounce. **The feel-critical file** — see Design intent
   above.
-- `scripts/ui/paytable_panel.gd` — the "i" button overlay: match rule
-  (`_build_rules_section`, Payline-only today — see `docs/07_SLOT_TYPES.md`
-  for where the other four types plug in later) + per-symbol payouts/odds
-  + overall RTP, rebuilt live on every open. Meant to be added to every
+- `scripts/ui/paytable_panel.gd` — the "i" button overlay: a per-reel
+  purchase ledger (D33, only shown once something's been bought) + match
+  rule (`_build_rules_section`, Payline-only today — see
+  `docs/07_SLOT_TYPES.md` for where the other four types plug in later) +
+  per-symbol payouts/odds + overall RTP, rebuilt live on every open. Meant
+  to be added to every
   future slot-gameplay screen, not just this one.
 - `scripts/ui/big_win_banner.gd` — tiered bounce-in banner for payouts
   ≥10x/30x/100x bet.

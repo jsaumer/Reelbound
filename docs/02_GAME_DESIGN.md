@@ -68,7 +68,13 @@ Symbol acquisition splits into two distinct interactions, not one:
 
 ### Reel editor offers — LOCKED (D32)
 
-The reel editor is a small drafted set, not a free picker: each build phase rolls **3 offers**, each a fully specified purchase — symbol (drawn from what's already owned), target reel, and quantity (1) — with the cost shown up front. Buying one applies exactly the fixed-slot swap `D29` already defines; there's no separate reel/symbol/quantity selection step. Offers are rolled once per build phase (not per purchase) and don't regenerate mid-phase — a bought offer just shows as bought, the other two stay available. Refines D29's original freeform picker, which read as spreadsheet-shopping — the exact thing `D5` was trying to avoid.
+The reel editor is a small drafted set, not a free picker: each build phase rolls **3 offers**, each a fully specified purchase — symbol (drawn from what's already owned), target reel, and quantity (1) — with the cost shown up front. Buying one applies exactly the fixed-slot swap `D29` already defines; there's no separate reel/symbol/quantity selection step. Offers are rolled once per build phase (not per purchase); a bought offer just shows as bought, the other two stay available — unless you pay to **reroll** them (`D33`). Refines D29's original freeform picker, which read as spreadsheet-shopping — the exact thing `D5` was trying to avoid.
+
+### Reroll and the reel ledger — LOCKED (D33)
+
+Don't like the 3 offers? **Reroll** them for a price that **climbs each time you use it within the same build phase** (resets on the next one) — a real trade against the wallet, not a free do-over. Rerolling only replaces *unbought* offers; anything already bought is a done deal and stays exactly as purchased. This is the intended path to a symbol you just unlocked from the shelf (Wild): the offers already rolled for this build phase were fixed before you could've bought it, so rerolling is how you go looking for it instead of waiting on the next build phase's luck.
+
+Because purchases can happen fast during a build phase and easily blur together, the play screen's existing paytable/odds panel (`02` §4, the "i" button) also shows a small **reel ledger** — a per-reel list of everything the reel editor added this build phase — so what you bought isn't forgotten by the time you're mid-stage deciding bets.
 
 ### Shelf content tiers — LOCKED (D30)
 
