@@ -131,3 +131,83 @@ func test_zero_purchases_baseline_is_the_unmodified_starting_machine():
 	assert_eq(result.reel_strips, strips)
 	assert_eq(result.starting_bankroll, 100.0)  # all wallet auto-converts
 	assert_eq(result.wild_symbol, "")
+
+
+func _seeded_rng(seed_value: int) -> RandomNumberGenerator:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	return rng
+
+
+func test_generates_the_configured_number_of_offers():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_eq(build.reel_offers().size(), BuildPhase.REEL_OFFER_COUNT)
+
+
+func test_offers_only_draw_from_owned_symbols():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	for offer in build.reel_offers():
+		assert_true(build.owned_symbols.has(offer.symbol))
+
+
+func test_offer_reel_index_is_within_range():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	for offer in build.reel_offers():
+		assert_gte(offer.reel_index, 0)
+		assert_lt(offer.reel_index, build.reel_strips.size())
+
+
+func test_offer_cost_matches_reel_edit_cost_for_its_symbol():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	for offer in build.reel_offers():
+		assert_eq(offer.cost, build.reel_edit_cost(offer.symbol, offer.quantity))
+
+
+func test_deterministic_for_a_fixed_seed():
+	var build_a := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(42))
+	var build_b := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(42))
+	for i in range(BuildPhase.REEL_OFFER_COUNT):
+		assert_eq(build_a.reel_offers()[i].reel_index, build_b.reel_offers()[i].reel_index)
+		assert_eq(build_a.reel_offers()[i].symbol, build_b.reel_offers()[i].symbol)
+
+
+func test_buying_an_offer_applies_the_edit_and_marks_it_bought():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	var offer = build.reel_offers()[0]
+	var strip_before: Array = build.reel_strips[offer.reel_index].duplicate()
+	var wallet_before: float = build.wallet
+
+	var bought := build.buy_reel_offer(0)
+
+	assert_true(bought)
+	assert_true(offer.bought)
+	assert_ne(build.reel_strips[offer.reel_index], strip_before)
+	assert_eq(build.wallet, wallet_before - offer.cost)
+
+
+func test_buying_an_already_bought_offer_is_a_noop():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_true(build.buy_reel_offer(0))
+	var wallet_after_first_buy: float = build.wallet
+	assert_false(build.buy_reel_offer(0))
+	assert_eq(build.wallet, wallet_after_first_buy)
+
+
+func test_buying_an_unaffordable_offer_is_a_safe_noop():
+	var build := BuildPhase.new(0.5, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_false(build.buy_reel_offer(0))
+	assert_eq(build.wallet, 0.5)
+
+
+func test_invalid_offer_index_is_a_safe_noop():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	assert_false(build.buy_reel_offer(-1))
+	assert_false(build.buy_reel_offer(BuildPhase.REEL_OFFER_COUNT))
+	assert_eq(build.wallet, 100.0)
+
+
+func test_buying_one_offer_leaves_the_others_untouched():
+	var build := BuildPhase.new(100.0, _reel_strips(), PAYTABLE.duplicate(true), 1.0, [], _seeded_rng(1))
+	build.buy_reel_offer(0)
+	for i in range(1, build.reel_offers().size()):
+		assert_false(build.reel_offers()[i].bought)

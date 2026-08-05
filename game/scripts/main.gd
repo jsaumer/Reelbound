@@ -31,11 +31,7 @@ var pools: Pools
 
 var _build_root: Control
 var _wallet_label: Label
-var _reel_option: OptionButton
-var _symbol_option: OptionButton
-var _quantity_spinbox: SpinBox
-var _edit_cost_label: Label
-var _edit_button: Button
+var _reel_offers_box: VBoxContainer
 var _shelf_box: VBoxContainer
 var _load_spinbox: SpinBox
 var _load_preview_label: Label
@@ -87,8 +83,10 @@ func _ready() -> void:
 ## one stage at a time; carrying purchased density forward across stages
 ## is Phase 6 meta-progression, not built yet).
 func _start_build_phase(wallet: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
 	build_phase = BuildPhase.new(wallet, EconomyConfig.build_default_reel_strips(),
-			EconomyConfig.DEFAULT_PAYTABLE.duplicate(true), EconomyConfig.MIN_BET)
+			EconomyConfig.DEFAULT_PAYTABLE.duplicate(true), EconomyConfig.MIN_BET, [], rng)
 	_refresh_build_screen()
 	_set_screen(GameState.BUILD)
 
@@ -216,43 +214,12 @@ func _build_build_screen() -> void:
 	_build_root.add_child(_wallet_label)
 
 	var editor_title := Label.new()
-	editor_title.text = "Reel editor (D29) -- convert a reel's cheapest filler into a symbol you own"
+	editor_title.text = "Reel editor (D29/D32) -- pre-rolled offers, rerolled each build phase"
 	_build_root.add_child(editor_title)
 
-	var editor_row := HBoxContainer.new()
-	editor_row.add_theme_constant_override("separation", 12)
-	_build_root.add_child(editor_row)
-
-	var reel_label := Label.new()
-	reel_label.text = "Reel:"
-	editor_row.add_child(reel_label)
-	_reel_option = OptionButton.new()
-	editor_row.add_child(_reel_option)
-
-	var symbol_label := Label.new()
-	symbol_label.text = "Symbol:"
-	editor_row.add_child(symbol_label)
-	_symbol_option = OptionButton.new()
-	_symbol_option.item_selected.connect(_on_edit_controls_changed)
-	editor_row.add_child(_symbol_option)
-
-	var qty_label := Label.new()
-	qty_label.text = "Qty:"
-	editor_row.add_child(qty_label)
-	_quantity_spinbox = SpinBox.new()
-	_quantity_spinbox.min_value = 1
-	_quantity_spinbox.max_value = 20
-	_quantity_spinbox.value = 1
-	_quantity_spinbox.value_changed.connect(_on_edit_controls_changed)
-	editor_row.add_child(_quantity_spinbox)
-
-	_edit_cost_label = Label.new()
-	editor_row.add_child(_edit_cost_label)
-
-	_edit_button = Button.new()
-	_edit_button.text = "Edit Reel"
-	_edit_button.pressed.connect(_on_edit_reel_pressed)
-	editor_row.add_child(_edit_button)
+	_reel_offers_box = VBoxContainer.new()
+	_reel_offers_box.add_theme_constant_override("separation", 6)
+	_build_root.add_child(_reel_offers_box)
 
 	var shelf_title := Label.new()
 	shelf_title.text = "Shelf (Relics, D28/D30)"
@@ -304,15 +271,22 @@ func _build_build_screen() -> void:
 func _refresh_build_screen() -> void:
 	_wallet_label.text = "Wallet: %.1f" % build_phase.wallet
 
-	_reel_option.clear()
-	for i in range(build_phase.reel_strips.size()):
-		_reel_option.add_item("Reel %d" % (i + 1), i)
-
-	var owned: Array = build_phase.owned_symbols.duplicate()
-	owned.sort()
-	_symbol_option.clear()
-	for symbol in owned:
-		_symbol_option.add_item(symbol)
+	for child in _reel_offers_box.get_children():
+		child.queue_free()
+	for i in range(build_phase.reel_offers().size()):
+		var offer: BuildPhase.ReelOffer = build_phase.reel_offers()[i]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var label := Label.new()
+		label.text = ("Add %d %s to Reel %d -- %.1f"
+				% [offer.quantity, offer.symbol, offer.reel_index + 1, offer.cost])
+		row.add_child(label)
+		var buy_button := Button.new()
+		buy_button.text = "Bought" if offer.bought else "Buy"
+		buy_button.disabled = offer.bought
+		buy_button.pressed.connect(_on_buy_reel_offer_pressed.bind(i))
+		row.add_child(buy_button)
+		_reel_offers_box.add_child(row)
 
 	for child in _shelf_box.get_children():
 		child.queue_free()
@@ -330,17 +304,6 @@ func _refresh_build_screen() -> void:
 
 	_load_spinbox.max_value = max(0.0, build_phase.wallet)
 	_on_load_controls_changed()
-	_on_edit_controls_changed()
-
-
-func _on_edit_controls_changed(_unused = null) -> void:
-	if _symbol_option.item_count == 0:
-		_edit_cost_label.text = ""
-		return
-	var symbol := _symbol_option.get_item_text(_symbol_option.selected)
-	var quantity := int(_quantity_spinbox.value)
-	var cost := build_phase.reel_edit_cost(symbol, quantity)
-	_edit_cost_label.text = "Cost: %.1f" % cost
 
 
 func _on_load_controls_changed(_unused = null) -> void:
@@ -348,16 +311,13 @@ func _on_load_controls_changed(_unused = null) -> void:
 	_load_preview_label.text = "-> %.0f spins" % spins
 
 
-func _on_edit_reel_pressed() -> void:
-	if _symbol_option.item_count == 0 or _reel_option.item_count == 0:
-		return
-	var reel_index := _reel_option.selected
-	var symbol := _symbol_option.get_item_text(_symbol_option.selected)
-	var quantity := int(_quantity_spinbox.value)
-	if build_phase.edit_reel(reel_index, symbol, quantity):
-		_build_status_label.text = "Edited reel %d: +%d %s." % [reel_index + 1, quantity, symbol]
+func _on_buy_reel_offer_pressed(offer_index: int) -> void:
+	var offer: BuildPhase.ReelOffer = build_phase.reel_offers()[offer_index]
+	if build_phase.buy_reel_offer(offer_index):
+		_build_status_label.text = ("Added %d %s to reel %d."
+				% [offer.quantity, offer.symbol, offer.reel_index + 1])
 	else:
-		_build_status_label.text = "Can't afford that edit."
+		_build_status_label.text = "Can't afford that offer."
 	_refresh_build_screen()
 
 

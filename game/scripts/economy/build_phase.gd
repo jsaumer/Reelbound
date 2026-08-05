@@ -19,6 +19,13 @@ const WILD_RELIC_COST := 30.0
 # validated against any particular budget yet.
 const REEL_EDIT_COST_FACTOR := 0.5
 
+# D32: the reel editor is presented as a few pre-rolled offers, not a
+# free reel/symbol/quantity picker -- picking from a small drafted set
+# reads as a real decision instead of spreadsheet-shopping (matches D5's
+# stated goal, which the original freeform picker didn't actually meet).
+const REEL_OFFER_COUNT := 3
+const REEL_OFFER_QUANTITY := 1
+
 
 ## A shelf item -- D28's generic Shelf Item shape, player-facing name
 ## "Relics".
@@ -41,16 +48,38 @@ static func default_shelf(owned_symbols: Array) -> Array:
 	return [RelicOffer.new(WILD_RELIC_ID, WILD_RELIC_COST, "unlock_wild")]
 
 
+## A single pre-rolled reel-editor purchase (D32): symbol, target reel,
+## and quantity are all decided when the offer is generated, not picked
+## freely by the player -- buying it applies the same fixed-slot swap
+## edit_reel() always has, just reached through a curated choice instead
+## of three raw dropdowns.
+class ReelOffer:
+	var reel_index: int
+	var symbol: String
+	var quantity: int
+	var cost: float
+	var bought: bool = false
+
+	func _init(p_reel_index: int, p_symbol: String, p_quantity: int, p_cost: float) -> void:
+		reel_index = p_reel_index
+		symbol = p_symbol
+		quantity = p_quantity
+		cost = p_cost
+
+
 var wallet: float
 var reel_strips: Array
 var paytable: Dictionary
 var min_bet: float
 var owned_symbols: Array
 var loaded_bankroll: float = 0.0
+var rng: RandomNumberGenerator
+var _reel_offers: Array = []
 
 
 func _init(p_wallet: float, p_reel_strips: Array, p_paytable: Dictionary,
-		p_min_bet: float = 1.0, p_owned_symbols: Array = []) -> void:
+		p_min_bet: float = 1.0, p_owned_symbols: Array = [],
+		p_rng: RandomNumberGenerator = null) -> void:
 	wallet = p_wallet
 	reel_strips = p_reel_strips
 	paytable = p_paytable
@@ -64,10 +93,48 @@ func _init(p_wallet: float, p_reel_strips: Array, p_paytable: Dictionary,
 		owned_symbols = seen.keys()
 	else:
 		owned_symbols = p_owned_symbols.duplicate()
+	rng = p_rng if p_rng != null else RandomNumberGenerator.new()
+	# D32: rolled once per build phase, from whatever's owned at the start
+	# of it -- a symbol bought from the shelf mid-phase (Wild) doesn't
+	# retroactively appear in this phase's offers, only the next one's.
+	_reel_offers = _generate_reel_offers()
 
 
 func shelf() -> Array:
 	return default_shelf(owned_symbols)
+
+
+func _generate_reel_offers() -> Array:
+	var symbols: Array = owned_symbols.duplicate()
+	symbols.sort()
+	var offers := []
+	for i in range(REEL_OFFER_COUNT):
+		var symbol: String = symbols[rng.randi_range(0, symbols.size() - 1)]
+		var reel_index := rng.randi_range(0, reel_strips.size() - 1)
+		var cost := (ReelEditor.symbol_tier_value(symbol, paytable)
+				* REEL_OFFER_QUANTITY * REEL_EDIT_COST_FACTOR)
+		offers.append(ReelOffer.new(reel_index, symbol, REEL_OFFER_QUANTITY, cost))
+	return offers
+
+
+func reel_offers() -> Array:
+	return _reel_offers
+
+
+## Buys one of this build phase's pre-rolled offers (D32). False if the
+## index is out of range, already bought, or unaffordable -- edit_reel()
+## (reused here, not duplicated) is the actual source of truth on
+## affordability.
+func buy_reel_offer(offer_index: int) -> bool:
+	if offer_index < 0 or offer_index >= _reel_offers.size():
+		return false
+	var offer: ReelOffer = _reel_offers[offer_index]
+	if offer.bought:
+		return false
+	if edit_reel(offer.reel_index, offer.symbol, offer.quantity):
+		offer.bought = true
+		return true
+	return false
 
 
 func buy_relic(relic_id: String) -> bool:
