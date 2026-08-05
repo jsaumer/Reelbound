@@ -8,6 +8,7 @@ Tiers 2/3 (above-crown symbols, enchantment-charge Relics) are designed
 but not built -- see docs/06_OPEN_QUESTIONS.md D30.
 """
 
+import random
 from dataclasses import dataclass, field
 
 from sim.reel_editor import apply_reel_edit, symbol_tier_value
@@ -22,6 +23,13 @@ WILD_RELIC_COST = 30.0
 # factor. Pricier symbols cost more per copy added -- tunable, not
 # validated against any particular budget yet.
 REEL_EDIT_COST_FACTOR = 0.5
+
+# D32: the reel editor is presented as a few pre-rolled offers, not a
+# free reel/symbol/quantity picker -- picking from a small drafted set
+# reads as a real decision instead of spreadsheet-shopping (matches D5's
+# stated goal, which the original freeform picker didn't actually meet).
+REEL_OFFER_COUNT = 3
+REEL_OFFER_QUANTITY = 1
 
 
 @dataclass
@@ -42,6 +50,21 @@ def default_shelf(owned_symbols: set) -> list:
 
 
 @dataclass
+class ReelOffer:
+    """A single pre-rolled reel-editor purchase (D32): symbol, target
+    reel, and quantity are all decided when the offer is generated, not
+    picked freely by the player -- buying it applies the same fixed-slot
+    swap `edit_reel` always has (cheapest-tier-present on that reel ->
+    this symbol), just reached through a curated choice instead of three
+    raw dropdowns."""
+    reel_index: int
+    symbol: str
+    quantity: int
+    cost: float
+    bought: bool = False
+
+
+@dataclass
 class BuildPhase:
     wallet: float
     reel_strips: list
@@ -49,14 +72,52 @@ class BuildPhase:
     min_bet: float = 1.0
     owned_symbols: set = field(default_factory=set)
     loaded_bankroll: float = 0.0
+    rng: random.Random = field(default_factory=random.Random)
+    _reel_offers: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self):
         if not self.owned_symbols:
             # Whatever's already on the starting reels is, by definition, owned.
             self.owned_symbols = {s for strip in self.reel_strips for s in strip}
+        # D32: rolled once per build phase, from whatever's owned at the
+        # start of it -- a symbol bought from the shelf mid-phase (Wild)
+        # doesn't retroactively appear in this phase's offers, only the
+        # next one's.
+        self._reel_offers = self._generate_reel_offers()
 
     def shelf(self) -> list:
         return default_shelf(self.owned_symbols)
+
+    def _generate_reel_offers(self) -> list:
+        symbols = sorted(self.owned_symbols)
+        num_reels = len(self.reel_strips)
+        offers = []
+        for _ in range(REEL_OFFER_COUNT):
+            symbol = self.rng.choice(symbols)
+            reel_index = self.rng.randrange(num_reels)
+            cost = (symbol_tier_value(symbol, self.paytable)
+                    * REEL_OFFER_QUANTITY * REEL_EDIT_COST_FACTOR)
+            offers.append(ReelOffer(reel_index=reel_index, symbol=symbol,
+                                     quantity=REEL_OFFER_QUANTITY, cost=cost))
+        return offers
+
+    def reel_offers(self) -> list:
+        return self._reel_offers
+
+    def buy_reel_offer(self, offer_index: int) -> bool:
+        """Buys one of this build phase's pre-rolled offers (D32). False
+        if the index is out of range, already bought, or unaffordable --
+        `edit_reel` (reused here, not duplicated) is the actual source of
+        truth on affordability."""
+        if offer_index < 0 or offer_index >= len(self._reel_offers):
+            return False
+        offer = self._reel_offers[offer_index]
+        if offer.bought:
+            return False
+        if self.edit_reel(offer.reel_index, offer.symbol, offer.quantity):
+            offer.bought = True
+            return True
+        return False
 
     def buy_relic(self, relic_id: str) -> bool:
         offer = next((r for r in self.shelf() if r.id == relic_id), None)

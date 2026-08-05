@@ -1,6 +1,9 @@
+import random
 import unittest
 
-from sim.build_phase import BuildPhase, WILD_SYMBOL, WILD_RELIC_ID, WILD_RELIC_COST
+from sim.build_phase import (
+    BuildPhase, WILD_SYMBOL, WILD_RELIC_ID, WILD_RELIC_COST, REEL_OFFER_COUNT,
+)
 
 PAYTABLE = {
     "cherry": {3: 2, 4: 5, 5: 10},
@@ -79,6 +82,83 @@ class TestEditReel(unittest.TestCase):
         self.assertFalse(build.edit_reel(0, "crown", 5))  # crown is expensive
         self.assertEqual(build.wallet, 1.0)
         self.assertEqual(build.reel_strips[0], strip_before)
+
+
+class TestReelOffers(unittest.TestCase):
+    def test_generates_the_configured_number_of_offers(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertEqual(len(build.reel_offers()), REEL_OFFER_COUNT)
+
+    def test_offers_only_draw_from_owned_symbols(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        for offer in build.reel_offers():
+            self.assertIn(offer.symbol, build.owned_symbols)
+
+    def test_offer_reel_index_is_within_range(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        for offer in build.reel_offers():
+            self.assertGreaterEqual(offer.reel_index, 0)
+            self.assertLess(offer.reel_index, len(build.reel_strips))
+
+    def test_offer_cost_matches_reel_edit_cost_for_its_symbol(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        for offer in build.reel_offers():
+            self.assertEqual(offer.cost, build.reel_edit_cost(offer.symbol, offer.quantity))
+
+    def test_deterministic_for_a_fixed_seed(self):
+        build_a = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                              rng=random.Random(42))
+        build_b = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                              rng=random.Random(42))
+        offers_a = [(o.reel_index, o.symbol) for o in build_a.reel_offers()]
+        offers_b = [(o.reel_index, o.symbol) for o in build_b.reel_offers()]
+        self.assertEqual(offers_a, offers_b)
+
+    def test_buying_an_offer_applies_the_edit_and_marks_it_bought(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        offer = build.reel_offers()[0]
+        strip_before = list(build.reel_strips[offer.reel_index])
+        wallet_before = build.wallet
+
+        bought = build.buy_reel_offer(0)
+
+        self.assertTrue(bought)
+        self.assertTrue(offer.bought)
+        self.assertNotEqual(build.reel_strips[offer.reel_index], strip_before)
+        self.assertEqual(build.wallet, wallet_before - offer.cost)
+
+    def test_buying_an_already_bought_offer_is_a_noop(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertTrue(build.buy_reel_offer(0))
+        wallet_after_first_buy = build.wallet
+        self.assertFalse(build.buy_reel_offer(0))
+        self.assertEqual(build.wallet, wallet_after_first_buy)
+
+    def test_buying_an_unaffordable_offer_is_a_safe_noop(self):
+        build = BuildPhase(wallet=0.5, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertFalse(build.buy_reel_offer(0))
+        self.assertEqual(build.wallet, 0.5)
+
+    def test_invalid_offer_index_is_a_safe_noop(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        self.assertFalse(build.buy_reel_offer(-1))
+        self.assertFalse(build.buy_reel_offer(REEL_OFFER_COUNT))
+        self.assertEqual(build.wallet, 100.0)
+
+    def test_buying_one_offer_leaves_the_others_untouched(self):
+        build = BuildPhase(wallet=100.0, reel_strips=_reel_strips(), paytable=dict(PAYTABLE),
+                            rng=random.Random(1))
+        build.buy_reel_offer(0)
+        for offer in build.reel_offers()[1:]:
+            self.assertFalse(offer.bought)
 
 
 class TestLoadBankrollAndFinalize(unittest.TestCase):
