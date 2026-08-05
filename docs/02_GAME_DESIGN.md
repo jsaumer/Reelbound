@@ -186,6 +186,8 @@ Between runs (and possibly an in-run shop between stages), unlock new symbols, f
 
 Every category of ownable content, and how it's meant to reach the player:
 
+> **Open decision flag (`D36`):** the "Per-machine (this stage)" scope on symbol rows below is currently an *implication*, not a locked decision — whether the authored machine persists across stages or is re-authored each stage has never had its own D-number, and it changes what purchase "compounding" even means. See `06_OPEN_QUESTIONS.md` D36; resolve before Phase 5.
+
 | Category | Acquired via | Scope | Costs | Gated by | Builds in |
 |---|---|---|---|---|---|
 | Standard symbols | In-run shelf purchase (`D5`) | Per-machine (this stage) | Wallet | Symbol-density meta-unlocks | Phase 4 (mechanic) / 6 (content) |

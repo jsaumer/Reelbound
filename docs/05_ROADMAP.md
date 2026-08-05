@@ -2,6 +2,20 @@
 
 Engine-agnostic. Ordered so that the **make-or-break questions are answered cheapest and first**: decide the engine, prove the economy is fun, then build the visual game on proven foundations.
 
+## Current focus *(updated 2026-08-05, post project review)*
+
+**Now (parallel tracks):**
+1. **Phase 4 closing playtest checklist** (below) — hands-on feedback questions; human-gated, no code needed.
+2. **Phase 4.5 — multi-stage economic skeleton, sim-only** (new phase, below) — pulled forward from Phase 6 because the purchase-EV finding showed the macro loop is the biggest unvalidated assumption left, and every Phase 5+ balance target depends on it. Pure `sim/` work; doesn't wait on the playtest checklist.
+
+**Decisions to make soonest (both cheap, both load-bearing):**
+- **`D36`** — do machines persist across stages, or get re-authored each stage? Gates all of Phase 4.5's modeling and every Phase 5 balance number. Currently implied per-stage, never decided.
+- **`D7`** — theme. Recommended earlier than originally planned (~Phase 5, not 7): it has mechanical hooks (what a quota *is*, fiction-wise), not just art ones.
+
+**Next:** Phase 5 (boons/curses/bet types), now carrying a skill-gap exit criterion (`K4`). **Then:** 5.5 as a two-type slice first (see the amended phase), 5.7, 6, 7, 8.
+
+**Standing risk ledger (from the 2026-08-05 review):** the differentiator (active play phase) is currently the *thinnest measured* part of the game — one lever, ~5-point skill gap — while being the whole niche claim; `K4` exists to keep this honest. Phase 5.5 is the largest scope item in the plan (five payout resolvers); the two-type slice is the hedge. Expect gambling-imagery ratings scrutiny at Phase 8 (Balatro precedent) — plan the store/rating approach early, don't discover it at submission.
+
 ## Phase 0 — Planning & Decisions *(complete)*
 Reach the decisions that gate everything else.
 - [x] Design set drafted (this document set).
@@ -56,18 +70,28 @@ Structured feedback wanted from hands-on play, 2026-08-05. Each is a specific qu
 
 **Gate to Phase 5:** the checklist above answered (even roughly), plus no new D-level design reversals pending. Balance findings that depend on multi-stage play (purchase EV, `D22`) explicitly do **not** gate Phase 5 — they gate Phase 6.
 
+## Phase 4.5 — Multi-Stage Economic Skeleton *(sim only — new 2026-08-05)*
+Validate the *run*, not just the stage, before content gets balanced against a possibly-wrong macro loop. Pulled forward from Phase 6 (per the review: phases 5–5.7 are content on top of a loop whose macro-structure is unvalidated, and the purchase-EV finding is the smoking gun). **No Godot work in this phase** — everything here is `sim/`, cheap, and disposable.
+- [ ] **Decide `D36`** (machine persistence) — prototype both variants in sim if the answer isn't obvious on paper; this is the cheapest place to ever test it.
+- [ ] Multi-stage sim loop: N stages, wallet cycling per `D21`, machine scoping per `D36`, run ends on first failed stage.
+- [ ] **Answer `D22` with data:** sweep candidate quota-escalation curves (`sim/harness.py` pattern); the chosen curve must make purchases EV-positive across a run (the standing constraint from the 2026-08-05 balance note) while keeping per-stage win rates in a tense band.
+- [ ] **Per-offer EV tool** in `sim/odds.py`: Δ theoretical RTP × expected bet volume vs. offer cost. Quantifies what the review flagged qualitatively: left-anchored paylines make reel-1 adds worth far more than reel-5 adds at identical prices, and Wild (crown's paytable + substitution) is strictly better than crown at the same per-copy price. Feeds both pricing fixes and the offer-EV-display UI idea (`03` parking lot).
+- [ ] **Formalize the `K4` skill-gap KPI** as a standing harness output (best-strategy vs. naive win rate, reported by `python -m sim.main compare`), so every later phase gets the number for free.
+- [ ] Tech debt: consolidate the two dual-limiter loops (`run_play_phase` should become a thin wrapper over `run_stage` with an all-MINOR sequence) so they can't drift.
+- **Exit:** `D36` and `D22` decided with sim evidence; a full ~8-stage run holds a defensible difficulty/EV shape in simulation; purchases are worth buying across a run.
+
 ## Phase 5 — Boons, Curses, Bet Types
 The spice, as small modifiers on defined hooks (`onBet/onSpin/onWin/onStageEnd`).
 - [ ] Modifier system + first 8–10 boons/curses from the backlog.
 - [ ] Alternate bet types.
-- **Exit:** modifiers change how a stage plays without breaking the core.
+- **Exit:** modifiers change how a stage plays without breaking the core, **and the `K4` skill gap widens measurably past the Phase-3 baseline (~5 points) — target ≥10 points with boons/bet types in play.** If the gap refuses to move, stop and rework the play-phase decision surface before adding more content; a static gap means the niche claim is hollow.
 
 ## Phase 5.5 — Slot Types
-Prove the second gameplay axis: the payout rulesets (`07`).
-- [ ] Implement the five types (Payline first, then ways-to-win, cluster+cascade, hold-and-spin, Megaways-style).
-- [ ] Validate each type's volatility via the Phase-1 sim harness.
-- [ ] Confirm symbol density interacts distinctly per type (a build strong in one is weak in another).
-- **Exit:** all five types play distinctly and are individually balanced by simulation.
+Prove the second gameplay axis: the payout rulesets (`07`). **Scope note (2026-08-05 review): this is the single largest scope item in the plan** — five payout resolvers, each needing its own balance pass and native bonus. So it's now explicitly staged as a **two-type slice first**:
+- [ ] **Slice: Payline + hold-and-spin.** Hold-and-spin is the second type on purpose — its respin mode natively reinforces bank-vs-press, the game's differentiator, and proves the multi-type architecture (per-type resolver modules, per-type rules sections in the paytable panel) with the hardest structural questions answered.
+- [ ] Validate both types' volatility via the sim harness; confirm density interacts distinctly between them (a build strong in one is weak in the other).
+- [ ] **Checkpoint: is the two-type game distinct and fun?** Only then build out ways-to-win, cluster+cascade, and Megaways-style — as content on a proven pattern, not as gates.
+- **Exit (slice):** two types play distinctly and are balanced by simulation. **Exit (full):** all five.
 
 ## Phase 5.7 — Bonus System (unlockable capability)
 Layer bonuses on *after* the pure-economy game stands (`08`).
@@ -96,6 +120,7 @@ Now invest in the final look (see `04`).
 - [ ] Steam integration (achievements, cloud saves), store assets, build pipeline.
 - [ ] Onboarding / first-run experience.
 - [ ] Playtesting + balance.
+- [ ] **Ratings / store positioning for gambling imagery.** A literal slot-machine game should *expect* age-rating scrutiny — Balatro was rated PEGI 18 for "prominent gambling imagery" despite having no real-money anything, and had store friction over it. Not a design change; a plan-early item: know the likely rating, write the store copy accordingly, and don't discover this at submission.
 - **Exit:** shippable.
 
 ## Guiding principles

@@ -115,6 +115,13 @@ A boon/curse whose trigger is "this owned symbol is in a winning combination" in
 - **The Drought** — reduced trigger rates; tests consistency builds.
 - **The Loan Shark** — borrow bankroll now, owe winnings later.
 
+## Build/shop & play-screen UX *(from the 2026-08-05 project review)*
+
+- **Visible upcoming node track.** Render the next 5–10 stage-path nodes as a strip of icons (StS-map-style, even flat). Motivation: the node system's main visible output today is a badge that reads "Minor spin" 13 times out of 15 — rare nodes land as surprises instead of events. A visible track creates anticipation ("Elite in 3 spins — fatten the bankroll first?"), serves press-your-luck planning directly, and is the natural stepping stone to `D31`'s intended branching-map evolution. Cheap, high-leverage; a strong candidate for the first Phase 5 UI task.
+- **Offer EV display.** Show each reel-editor offer's actual value next to its cost — "Add 1 crown to Reel 1 — 33.3 · +2.1% RTP" — powered by the Phase 4.5 per-offer EV tool (`05_ROADMAP.md`). Turns buying from a guess into the legible trade pillar 3 demands; an honestly-bad offer becomes a *visible skip decision* instead of a trap.
+- **Position-aware offer pricing.** Left-anchored payline evaluation makes a symbol added to reel 1 worth far more than the same symbol on reel 5 (reel-5 copies only ever matter in 5-matches) — current pricing ignores position entirely, so players will learn "reel 5 offers are traps." Either price position in, or lean on the EV display above to surface it; probably not both.
+- **Wild price premium.** Wild pays crown's paytable *and* substitutes — strictly better than crown, currently at the identical per-copy reel-editor price (same tier value). Mispriced by construction; the EV tool quantifies the right premium.
+
 ## Parking lot (unsorted sparks)
 
 - **"Path B" — active/interleaved build phase** *(still parked; core commits to Path A, D20)*. Instead of build-then-play, the player plays a lighter in-stage loop that earns money + spin-cap *during* the stage, spending it on symbols/bonuses as they go, with the big slot spin as a finale. Novel but requires inventing a second gameplay loop from scratch, and it competes with the active play phase (the strongest mechanic). **The pacing/variety need this was reaching for got addressed a different way: `D31`'s node-structured play phase** (minor/elite/event/rest/treasure nodes, one continuous economy, no new spending loop) — genre-style stage structure without actually building Path B. Revisit *this* entry only if `D31`'s approach ever proves too thin on its own.
