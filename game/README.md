@@ -39,7 +39,7 @@ repo root for how it's excluded from git.)
 tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --path game -s addons/gut/gut_cmdln.gd -gdir=res://tests -gexit
 ```
 
-82 GUT tests, ported from `sim/tests/` for economy parity: pools,
+92 GUT tests, ported from `sim/tests/` for economy parity: pools,
 paytable, dual-limiter, near-miss/big-win pure logic, `Odds`, gamble-up,
 D23 cash-out, Wild substitution, the reel editor, `BuildPhase`, and
 `Stage` (including a tension-band regression check).
@@ -86,8 +86,9 @@ tools/godot/Godot_v4.7.1-stable_win64_console.exe --headless --editor --path gam
   - `reel_editor.gd` — D29's fixed-slot density-tuning swap (cheapest-tier
     symbol present → a symbol you own, strip length conserved).
   - `build_phase.gd` — the build phase: wallet, the Wild-only Relic shelf
-    (D28/D30), the reel editor, load-bankroll/finalize (D5's no-waste
-    failsafe).
+    (D28/D30), the reel editor exposed as 3 pre-rolled offers per build
+    phase rather than a free picker (D32), load-bankroll/finalize (D5's
+    no-waste failsafe).
   - `stage.gd` — the D31 node path (minor/elite/event/rest/treasure) over
     one continuous economy. Unlike `sim/stage.py`'s batch loop, this
     composes a `PlayPhase` and drives it one node at a time — the same
